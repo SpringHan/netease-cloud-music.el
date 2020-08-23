@@ -1,4 +1,4 @@
-;;;; Netease Music :: A netease music client in Emacs.
+;;;; Netease Music :: A netease music client for Emacs.
 
 ;;; Intro
 ;; Copyright (C) 2020 SpringHan
@@ -29,8 +29,7 @@
 	"The process of Netease Music."
 	:group 'netease-music)
 
-(defcustom netease-music-current-song nil
-	:type 'string
+(defcustom netease-music-current-song
 	:group 'netease-music)
 
 (defconst netease-music-buffer-name "*Netease-Music*"
@@ -85,20 +84,21 @@
 
 (cl-defun netease-music-request-from-api (content &key (type 'song))
 	"Request the CONTENT from Netease Music API."
-	(let (result)
+	(let (result search-type)
 		(pcase type
-			(song
-			 (request
-				 netease-music-search-api
-				 :auth "digest"
-				 :data '(("s" . content)
-								 ("limit" . "1")
-								 ("type" . "1"))
-				 :parser 'json-read
-				 :success (cl-function
-									 (lambda (&key data &allow-other-keys)
-										 (setq result data))))))
-		(cl-return-from netease-music-request-from-api result)))
+			(song (setq search-type "1")))
+		(request
+			netease-music-search-api
+			:type "POST"
+			:data (list (cons "s" content)
+									(cons "limit" "1")
+									(cons "type" search-type)
+									(cons "offset" "0"))
+			:parser 'json-read
+			:success (cl-function
+								(lambda (&key data &allow-other-keys)
+									(setq result (assoc-default 'result data))
+									(cl-return-from netease-music-request-from-api result))))))
 
 (defun netease-music-search-song (song-name)
 	"Search SONG-NAME from Netease Music."
