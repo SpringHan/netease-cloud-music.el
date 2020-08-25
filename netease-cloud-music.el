@@ -90,7 +90,10 @@
 
 (cl-defun netease-cloud-music-request-from-api (content &key (type 'song))
 	"Request the CONTENT from Netease Music API.
-CONTENT is a string."
+
+CONTENT is a string.
+
+TYPE is a symbol, its value can be song."
 	(let (result search-type)
 		(pcase type
 			('song (setq search-type "1")))
@@ -106,6 +109,52 @@ CONTENT is a string."
 			:sync t)
 		(cl-return-from netease-cloud-music-request-from-api result)))
 
+(cl-defun netease-cloud-music-ask (type)
+	"Ask user TYPE of the question.
+If user reply y, return t.
+Otherwise return nil."
+	(let (result)
+		(pcase type
+			('song
+			 (setq result (read-minibuffer "The info of the song is here, do you want to listen it?(y/n)"))
+			 (if (string= result "y")
+					 (cl-return-from netease-cloud-music-ask t))))))
+
+(cl-defun netease-cloud-music-read-json (data &key sid sname aid aname)
+	"Read the Netease Music json DATA and return the result.
+
+SID is the song-id.
+
+SNAME is the song-name.
+
+AID is the artist-id.
+
+ANAME is the artist-name."
+	(let (r-sid r-sname r-aid r-aname)
+		(cond (sid
+					 (setq r-sid
+								 (cdar (aref
+												(cdr (cadar
+															data)) 0))))
+					(sname
+					 (setq r-sname
+								 (cdadr (aref
+												 (cdr (cadar
+															 search-result)) 0))))
+					(aid
+					 (setq r-aid
+								 (cdar (aref
+												(cdar (cddr
+															 (aref (cdr
+																			(cadar test)) 0))) 0))))
+					(aname
+					 (setq r-aid
+								 (cdadr (aref
+												 (cdar (cddr
+																(aref (cdr
+																			 (cadar data)) 0))) 0)))))
+		(list r-sid r-sname r-aid r-aname)))
+
 (defun netease-cloud-music-search-song (song-name)
 	"Search SONG-NAME from Netease Music and return the song id.
 SONG-NAME is a string."
@@ -117,26 +166,35 @@ SONG-NAME is a string."
 					 (result-song-id
 						(cdar (aref
 									 (cdr (cadar
-												 (search-result))) 0)))
+												 search-result)) 0)))
 					 (result-song-name
 						(cdadr (aref
 										(cdr (cadar
-													(search-result))) 0)))
+													search-result))) 0))
 					 (result-artist-name
 						(cdadr (aref
 										(cdar (cddr
 													 (aref (cdr
 																	(cadar search-result)) 0))) 0))))
-			(netease-cloud-music-interface-init content))))
+			(netease-cloud-music-interface-init :content (list result-song-id result-song-name result-artist-name))
+			(if (netease-cloud-music-ask 'song)
+					;; call the 'Play the music' function.
+					(message "Now, the first song will not play.")))))
 
-(cl-defun netease-cloud-music-interface-init (content &key (type 'song))
+(cl-defun netease-cloud-music-interface-init (&key (content nil) (type 'song))
 	"Initialize the Netease Music buffer interface.
 CONTENT is a cons, its value is variable with TYPE.
 
 TYPE is a symbol, its value can be song.
 
-When TYPE is song, CONTENT is:
+When TYPE is song, CONTENT can be:
 
-'(music-name . artist-name)")
+'(music-name . artist-name)
+
+If CONTENT is null, it will print the init content."
+	(if (null content)
+			(progn)))
+;; (pcase type
+;; 	('song))))
 
 (provide 'netease-cloud-music)
