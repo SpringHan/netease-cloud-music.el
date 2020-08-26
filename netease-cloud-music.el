@@ -7,7 +7,7 @@
 ;; Maintainer: SpringHan
 
 ;; Version: 1.0
-;; License: MIT
+;; License: GPL-3.0
 
 ;; Last Change: <+++>
 ;; Repository: https://github.com/SpringHan/netease-cloud-music.el
@@ -29,7 +29,19 @@
 	"The process of Netease Music."
 	:group 'netease-cloud-music)
 
-(defcustom netease-cloud-music-current-song
+(defcustom netease-cloud-music-current-song ""
+	"The current playing song."
+	:type 'string
+	:group 'netease-cloud-music)
+
+(defcustom netease-cloud-music-process-status ""
+	"The status of Netease Music process."
+	:type 'string
+	:group 'netease-cloud-music)
+
+(defcustom netease-cloud-music-cache-directory (expand-file-name (locate-user-emacs-file "netease-cloud-music/"))
+	"The cache directory of Netease Music."
+	:type 'string
 	:group 'netease-cloud-music)
 
 (defconst netease-cloud-music-buffer-name "*Netease-Cloud-Music*"
@@ -42,6 +54,10 @@
 	"http://music.163.com/api/search/get/"
 	"The search api of Netease Music.")
 
+(defconst netease-cloud-music-song-link
+	"http://music.163.com/song/media/outer/url?id="
+	"The song link of Netease Music.")
+
 (defvar netease-cloud-music-mode-map
 	(let ((map (make-sparse-keymap)))
 		(define-key map "q" 'netease-cloud-music-close)
@@ -49,6 +65,7 @@
 		(define-key map "f" 'netease-cloud-music-search-song)
 		(define-key map "n" 'next-line)
 		(define-key map "p" 'previous-line)
+		(define-key map "x" 'netease-cloud-music-kill-current-song)
 		map)
 	"Netease Music mode map.")
 
@@ -67,12 +84,21 @@
 	(interactive)
 	(unless (buffer-live-p (get-buffer netease-cloud-music-buffer-name))
 		(switch-to-buffer netease-cloud-music-buffer-name))
-	(netease-cloud-music-mode))
+	(netease-cloud-music-mode)
+	(netease-cloud-music-interface-init))
+
+(defun netease-cloud-music-process-live-p ()
+	"Check if the Netease Music process is live.
+If it's live, return t.
+Otherwise return nil."
+	(if (and netease-cloud-music-process
+					 (not (eq (process-live-p netease-cloud-music-process) 0)))
+			t
+		nil))
 
 (defun netease-cloud-music-kill-process ()
 	"Kill the Netease Music process."
-	(when (and netease-cloud-music-process
-						 (/= (process-live-p netease-cloud-music-process) 0))
+	(when (netease-cloud-music-process-live-p)
 		(delete-process netease-cloud-music-process)
 		(setq netease-cloud-music-process nil)))
 
@@ -80,6 +106,7 @@
 	"Close Netease Music and kill the process."
 	(interactive)
 	(netease-cloud-music-kill-process)
+	(setq netease-cloud-music-process-status "")
 	(kill-buffer netease-cloud-music-buffer-name))
 
 (defmacro netease-cloud-music-expand-form (&rest form)
@@ -131,28 +158,28 @@ AID is the artist-id.
 
 ANAME is the artist-name."
 	(let (r-sid r-sname r-aid r-aname)
-		(cond (sid
-					 (setq r-sid
-								 (cdar (aref
-												(cdr (cadar
-															data)) 0))))
-					(sname
-					 (setq r-sname
-								 (cdadr (aref
-												 (cdr (cadar
-															 search-result)) 0))))
-					(aid
-					 (setq r-aid
-								 (cdar (aref
-												(cdar (cddr
-															 (aref (cdr
-																			(cadar test)) 0))) 0))))
-					(aname
-					 (setq r-aid
-								 (cdadr (aref
-												 (cdar (cddr
-																(aref (cdr
-																			 (cadar data)) 0))) 0)))))
+		(when sid
+			(setq r-sid
+						(cdar (aref
+									 (cdr (cadar
+												 data)) 0))))
+		(when sname
+			(setq r-sname
+						(cdadr (aref
+										(cdr (cadar
+													data)) 0))))
+		(when aid
+			(setq r-aid
+						(cdar (aref
+									 (cdar (cddr
+													(aref (cdr
+																 (cadar data)) 0))) 0))))
+		(when aname
+			(setq r-aname
+						(cdadr (aref
+										(cdar (cddr
+													 (aref (cdr
+																	(cadar data)) 0))) 0))))
 		(list r-sid r-sname r-aid r-aname)))
 
 (defun netease-cloud-music-search-song (song-name)
@@ -161,40 +188,120 @@ SONG-NAME is a string."
 	(interactive "MEnter the song name: ")
 	(if (string= song-name "")
 			(error "You can't enter a null string!")
-		(let* ((search-result
-						(netease-cloud-music-request-from-api song-name))
-					 (result-song-id
-						(cdar (aref
-									 (cdr (cadar
-												 search-result)) 0)))
-					 (result-song-name
-						(cdadr (aref
-										(cdr (cadar
-													search-result))) 0))
-					 (result-artist-name
-						(cdadr (aref
-										(cdar (cddr
-													 (aref (cdr
-																	(cadar search-result)) 0))) 0))))
-			(netease-cloud-music-interface-init :content (list result-song-id result-song-name result-artist-name))
-			(if (netease-cloud-music-ask 'song)
-					;; call the 'Play the music' function.
-					(message "Now, the first song will not play.")))))
 
-(cl-defun netease-cloud-music-interface-init (&key (content nil) (type 'song))
+		;; Assigned the data from api to variables and call the functions to play the song
+		(let* ((search-result
+						(netease-cloud-music-read-json
+						 (netease-cloud-music-request-from-api song-name)
+						 :sid t :sname t :aname t))
+					 (result-song-id (car search-result))
+					 (result-song-name (nth 1 search-result))
+					 (result-artist-name (nth 3 search-result)))
+			(netease-cloud-music-interface-init
+			 :content (list result-song-name result-artist-name))
+			(if (netease-cloud-music-ask 'song)
+					(netease-cloud-music-play result-song-id result-song-name result-artist-name)
+				(message "Now, the song catched won't be played.")))))
+
+(cl-defun netease-cloud-music-interface-init (&key (content nil) (type 'song-ask))
 	"Initialize the Netease Music buffer interface.
 CONTENT is a cons, its value is variable with TYPE.
 
-TYPE is a symbol, its value can be song.
+TYPE is a symbol, its value can be song or song-ask.
 
-When TYPE is song, CONTENT can be:
+When TYPE is song-ask, CONTENT can be:
 
 '(music-name . artist-name)
 
-If CONTENT is null, it will print the init content."
-	(if (null content)
-			(progn)))
-;; (pcase type
-;; 	('song))))
+If CONTENT is nil and TYPE is not song, it will print the init content."
+	(setq buffer-read-only nil)
+	(erase-buffer)
+	(insert (propertize
+					 "Netease Cloud Music - 网易云音乐\n"
+					 'face '(:height 1.1 :foreground "Red3")))
+	;; TODO Get the cache songs and insert them
+
+	;; When the type is song, insert the current song info.
+	(cond ((eq type 'song)
+				 (insert "\n")
+				 (insert (concat
+									(propertize
+									 "Current song: "
+									 'face '(:height 0.9 :width bold))
+									(propertize (format
+															 "%s" netease-cloud-music-current-song)
+															'face '(:height 1.0 :foreground "MediumSpringGreen"))
+									(if content
+											(propertize " [Playing]\n"
+																	'face '(:foreground "OrangeRed"))
+										(propertize " [Paused]\n"
+																'face '(:foreground "OrangeRed"))))))
+				(content
+				 (insert "\n")
+				 (pcase type
+					 ('song-ask
+						(let ((song-name (car content))
+									(artist-name (nth 1 content)))
+							(insert (concat
+											 (propertize "Song name: "
+																	 'face '(:width bold))
+											 (propertize (format
+																		"%s\n" song-name "")
+																	 'face '(:foreground "Cyan3"))
+											 (propertize "Artist name: "
+																	 'face '(:width bold))
+											 (propertize (format
+																		"%s\n" artist-name)
+																	 'face '(:foreground "Cyan3")))))))))
+	(setq buffer-read-only t))
+
+(defun netease-cloud-music-play (song-id song-name artist-name)
+	"Play the song by its SONG-ID and update the interface with SONG-NAME"
+	(if (null song-id)
+			(error "There's no song-id!")
+		(setq netease-cloud-music-process
+					(start-process "netease-cloud-music-play"
+												 nil
+												 netease-cloud-music-player
+												 "-slave"
+												 (concat netease-cloud-music-song-link
+																 (format "%s"
+																				 song-id))))
+		(set-process-sentinel netease-cloud-music-process
+													'netease-cloud-music-process-sentinel)
+		(setq netease-cloud-music-process-status "playing")
+		(setq netease-cloud-music-current-song
+					(concat song-name " - " artist-name))
+		(netease-cloud-music-interface-init :content t :type 'song)))
+
+(defun netease-cloud-music-process-sentinel (process event)
+	"The sentinel of Netease Music process."
+	(when (string-match "\\(finished\\|exit\\)" event)
+		(message "There is a problem when playing the song.")
+		(setq netease-cloud-music-process-status "")
+		(netease-cloud-music-kill-process)))
+
+(defun netease-cloud-music-pause-or-continue ()
+	"Pause or continue play the current song."
+	(interactive)
+	(when (netease-cloud-music-process-live-p)
+		(process-send-string netease-cloud-music-process "pause\n")
+		(pcase netease-cloud-music-process-status
+			("playing"
+			 (setq netease-cloud-music-process-status "paused")
+			 (netease-cloud-music-interface-init :type 'song))
+			("paused"
+			 (setq netease-cloud-music-process-status "playing")
+			 (netease-cloud-music-interface-init :content t :type 'song)))))
+
+(defun netease-cloud-music-kill-current-song ()
+	"Kill the current song."
+	(interactive)
+	(if (netease-cloud-music-process-live-p)
+			(progn
+				(netease-cloud-music-kill-process)
+				(setq netease-cloud-music-process-status "")
+				(netease-cloud-music-interface-init))
+		(error "There's no song playing.")))
 
 (provide 'netease-cloud-music)
