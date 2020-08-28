@@ -1,0 +1,39 @@
+* 网易云音乐
+  网易云音乐是一个可以让你在 Emacs 里听音乐的插件
+** 依赖
+   - mplayer
+     这是一个播放歌曲的播放器
+     如果你是一名 Arch 用户, 你可以用这条命令安装它: ~sudo pacman -S mplayer~
+   - request
+     这是一个 Emacs 包裹, 你能用 ~M-x package-install RET request RET~ 安装它
+** 安装
+   1. 克隆此仓库
+      #+begin_src shell
+        git clone https://github.com/SpringHan/netease-cloud-music.el.git ~/.emacs.d/ --depth=1
+      #+end_src
+   2. 添加至 ~init.el~:
+      #+begin_src emacs-lisp
+        ;; Add it to load path
+        (add-to-list 'load-path "~/.emacs.d/netease-cloud-music.el")
+
+        ;; Require it
+        (require 'netease-cloud-music)
+      #+end_src
+** 快捷键
+   | 快捷键 | 功能                     |
+   |--------+--------------------------|
+   | a      | 将当前歌曲放入播放列表中 |
+   | f      | 搜索当前歌名             |
+   | P      | 播放播放列表中的所有歌曲 |
+   | p      | 上一首                   |
+   | n      | 下一首                   |
+   | x      | 停止当前歌曲             |
+   | >      | 快进                     |
+   | <      | 快退                     |
+   | ?      | 帮助文档                 |
+   | h      | 帮助文档                 |
+   | RET    | 在光标处播放播放列表     |
+   | SPC    | 暂停或继续当前歌曲       |
+   | q      | 退出网易云音乐           |
+** 许可
+   GPL-3.0
