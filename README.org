@@ -1,5 +1,6 @@
 * Netease Cloud Music
   Netease Cloud Music is a plugin that can let you listen music in Emacs.
+  [[./README_cn.org][中文文档]]
 ** Dependences
    - mplayer
      This is the player for playing the songs.
