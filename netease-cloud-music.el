@@ -99,6 +99,7 @@ It can be song or playlist."
 		(define-key map ">" 'netease-cloud-music-seek-forward)
 		(define-key map "<" 'netease-cloud-music-seek-backward)
 		(define-key map "a" 'netease-cloud-music-add-to-playlist)
+		(define-key map "r" 'netease-cloud-music-change-repeat-mode)
 		(define-key map "?" 'describe-mode)
 		(define-key map "h" 'describe-mode)
 		map)
@@ -251,6 +252,17 @@ SONG-NAME is a string."
 					(message "[Netease-Cloud-Music]: Now, the song catched won't be played.")
 					(netease-cloud-music-interface-init))))))
 
+(defun netease-cloud-music-change-repeat-mode ()
+	"Change the repeat mode."
+	(interactive)
+	(if netease-cloud-music-repeat-mode
+			(progn
+				(setq netease-cloud-music-repeat-mode nil)
+				(message "[Netease-Cloud-Music]: Now, repeat mode is opened."))
+		(setq netease-cloud-music-repeat-mode t)
+		(message "[Netease-Cloud-Music]: Now, repeat mode is closed."))
+	(netease-cloud-music-interface-init))
+
 (cl-defun netease-cloud-music-interface-init (&key content type)
 	"Initialize the Netease Music buffer interface.
 CONTENT is a cons, its value is variable with TYPE.
@@ -268,7 +280,14 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
 		(insert (propertize
 						 "Netease Cloud Music - 网易云音乐\n"
 						 'face '(:height 1.1 :foreground "Red3")))
-
+		;; Show the repeat mode status
+		(insert (concat
+						 (propertize "\nRepeat: "
+												 'face '(:foreground "DeepSkyBlue"))
+						 (propertize (if netease-cloud-music-repeat-mode
+														 "ON\n"
+													 "OFF\n")
+												 'face '(:foreground "LightPink" :weight bold))))
 		;; When the type is song, insert the current song info.
 		(when (not (null netease-cloud-music-current-song))
 			(insert "\n")
@@ -286,14 +305,6 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
 															 'face '(:foreground "OrangeRed"))
 								 (propertize " [Paused]\n"
 														 'face '(:foreground "OrangeRed"))))))
-		;; Show the repeat mode status
-		(insert (concat
-						 (propertize "\nRepeat: "
-												 'face '(:foreground "DeepSkyBlue"))
-						 (propertize (if netease-cloud-music-repeat-mode
-														 "ON\n"
-													 "OFF\n")
-												 'face '(:foreground "LightPink" :weight bold))))
 		;; Show the song infomation
 		(when content
 			(insert "\n")
@@ -323,7 +334,7 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
 									 (format "%s\n" song)
 									 'face '(:foreground "honeydew4"))))))
 		(setq buffer-read-only t)
-		(goto-line 6)))
+		(goto-line 4)))
 
 (defun netease-cloud-music-play (song-id song-name artist-name play-type)
 	"Play the song by its SONG-ID and update the interface with SONG-NAME"

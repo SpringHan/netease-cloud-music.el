@@ -29,6 +29,7 @@
    | Key | Function                           |
    |-----+------------------------------------|
    | a   | Add the current song into playlist |
+   | r   | Change the repeat mode             |
    | f   | Search song by its name            |
    | P   | Play all the songs in playlist     |
    | p   | Play the previous song in playlist |
@@ -46,6 +47,10 @@
 
      You can use this function to open the Netease Cloud Music buffer and enter the major mode.
      If now you have opened the buffer, Emacs will switch it when you use this function.
+
+   - ~netease-cloud-music-change-repeat-mode~
+
+     You can use this function to change the repeat mode.
 ** Variables
    - ~netease-cloud-music-repeat-mode~ (symbol)
 
