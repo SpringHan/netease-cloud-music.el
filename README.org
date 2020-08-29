@@ -1,11 +1,14 @@
 * Netease Cloud Music
   Netease Cloud Music is a plugin that can let you listen music in Emacs.
+
   [[./README_cn.org][中文文档]]
 ** Dependences
    - mplayer
+
      This is the player for playing the songs.
      If you are an Arch user, you can install it by: ~sudo pacman -S mplayer~
    - request
+
      This is a emacs package, you can install it by: ~M-x package-install RET request RET~
 ** Installation
    1. Clone it.
@@ -36,5 +39,18 @@
    | RET | Play the playlist song at point    |
    | SPC | Pause or continue the current song |
    | q   | Quit Netease Cloud Music           |
+** Function
+   - ~netease-cloud-music~
+
+     You can use this function to open the Netease Cloud Music buffer and enter the major mode.
+     If now you have opened the buffer, Emacs will switch it when you use this function.
+** Variables
+   - ~netease-cloud-music-repeat-mode~ (symbol)
+
+     If you set it to ~t~, it will play the current song or song in playlist repeat after finishing play it.
+
+   - ~netease-cloud-music-seek-second~ (string)
+
+     This variable can change the second when you do the seek action.Default is "5".
 ** License
    GPL-3.0

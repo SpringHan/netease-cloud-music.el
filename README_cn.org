@@ -3,9 +3,11 @@
   [[./README.org][English Doc]]
 ** 依赖
    - mplayer
+
      这是一个播放歌曲的播放器
      如果你是一名 Arch 用户, 你可以用这条命令安装它: ~sudo pacman -S mplayer~
    - request
+
      这是一个 Emacs 包裹, 你能用 ~M-x package-install RET request RET~ 安装它
 ** 安装
    1. 克隆此仓库
@@ -36,5 +38,17 @@
    | RET    | 在光标处播放播放列表     |
    | SPC    | 暂停或继续当前歌曲       |
    | q      | 退出网易云音乐           |
+** 函数
+   - ~netease-cloud-music~
+
+     可通过此函数打开网易云音乐buffer。如果已经打开，则跳转到网易云音乐buffer。
+** 变量
+   - ~netease-cloud-music-repeat-mode~ (symbol)
+
+     此变量为循环模式的开关，如果被赋值为 ~t~ ，则在播放完当前歌曲或者歌单中的音乐后重新播放。默认开启。
+
+   - ~netease-cloud-music-seek-second~ (string)
+
+     此变量为快进快退操作的执行秒数，默认为 "5"。
 ** 许可
    GPL-3.0
