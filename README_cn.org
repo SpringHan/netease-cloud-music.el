@@ -1,6 +1,9 @@
 * 网易云音乐
   网易云音乐是一个可以让你在 Emacs 里听音乐的插件
+
   [[./README.org][English Doc]]
+
+  [[./demo.png]]
 ** 依赖
    - mplayer
 

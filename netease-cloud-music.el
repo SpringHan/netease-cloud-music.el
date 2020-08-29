@@ -286,6 +286,15 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
 															 'face '(:foreground "OrangeRed"))
 								 (propertize " [Paused]\n"
 														 'face '(:foreground "OrangeRed"))))))
+		;; Show the repeat mode status
+		(insert (concat
+						 (propertize "\nRepeat: "
+												 'face '(:foreground "DeepSkyBlue"))
+						 (propertize (if netease-cloud-music-repeat-mode
+														 "ON\n"
+													 "OFF\n")
+												 'face '(:foreground "LightPink" :weight bold))))
+		;; Show the song infomation
 		(when content
 			(insert "\n")
 			(pcase type
@@ -314,7 +323,7 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
 									 (format "%s\n" song)
 									 'face '(:foreground "honeydew4"))))))
 		(setq buffer-read-only t)
-		(goto-line 2)))
+		(goto-line 6)))
 
 (defun netease-cloud-music-play (song-id song-name artist-name play-type)
 	"Play the song by its SONG-ID and update the interface with SONG-NAME"
