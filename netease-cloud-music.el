@@ -9,13 +9,14 @@
 ;; Version: 1.0
 ;; License: GPL-3.0
 
-;; Last Change: 2020-08-29
+;; Last Change: 2020-08-30
 ;; Repository: https://github.com/SpringHan/netease-cloud-music.el
 
 (eval-when-compile
 	(require 'cl))
 (require 'request)
 (require 'json)
+(require 'async)
 
 (defgroup netease-cloud-music nil
 	"Netease Music group"
@@ -140,7 +141,9 @@ Otherwise return nil."
 		(delete-process netease-cloud-music-process)
 		(setq netease-cloud-music-process nil
 					netease-cloud-music-current-song nil
-					netease-cloud-music-play-status "")))
+					netease-cloud-music-play-status "")
+		(when (get-buffer "*netease-cloud-music-play*")
+			(kill-buffer "*netease-cloud-music-play*"))))
 
 (defun netease-cloud-music-close ()
 	"Close Netease Music and kill the process."
@@ -342,13 +345,13 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
 			(error "[Netease-Cloud-Music]: There's no song-id!")
 		(netease-cloud-music-kill-process)
 		(setq netease-cloud-music-process
-					(start-process "netease-cloud-music-play"
-												 nil
-												 netease-cloud-music-player
-												 "-slave"
-												 (concat netease-cloud-music-song-link
-																 (format "%s"
-																				 song-id))))
+					(async-start-process "netease-cloud-music-play"
+															 netease-cloud-music-player
+															 nil
+															 "-slave"
+															 (concat netease-cloud-music-song-link
+																			 (format "%s"
+																							 song-id))))
 		(set-process-sentinel netease-cloud-music-process
 													'netease-cloud-music-process-sentinel)
 		(setq netease-cloud-music-process-status "playing")

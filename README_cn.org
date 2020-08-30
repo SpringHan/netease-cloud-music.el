@@ -12,6 +12,9 @@
    - request
 
      这是一个 Emacs 包裹, 你能用 ~M-x package-install RET request RET~ 安装它
+   - async
+
+     这是一个 Emacs 包裹，你可以用 ~M-x package-install RET async RET~ 安装他
 ** 安装
    1. 克隆此仓库
       #+begin_src shell
