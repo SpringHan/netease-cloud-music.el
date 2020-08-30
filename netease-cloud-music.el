@@ -70,9 +70,6 @@ It can be song or playlist."
 (defconst netease-cloud-music-buffer-name "*Netease-Cloud-Music*"
 	"The name of Netease Music buffer.")
 
-(defconst netease-cloud-music-player "mplayer"
-	"The player of Netease Music.")
-
 (defconst netease-cloud-music-search-api
 	"http://music.163.com/api/search/get/"
 	"The search api of Netease Music.")
@@ -81,8 +78,12 @@ It can be song or playlist."
 	"http://music.163.com/song/media/outer/url?id="
 	"The song link of Netease Music.")
 
-(defvar netease-cloud-music-seek-second "5"
-	"The seek second for Netease Music.")
+(defvar netease-cloud-music-player-command
+	'("mplayer" "-slave" "pause\n" "pause\n" "seek 5\n" "seek -5\n")
+	"The player command for playing the online songs.
+Its format is lick this:
+'(command play-online-songs-arg continue-message
+pause-message seek-forward-message seek-backward-message")
 
 (defvar netease-cloud-music-repeat-mode t
 	"The playlist repeat mode.")
@@ -142,8 +143,8 @@ Otherwise return nil."
 		(setq netease-cloud-music-process nil
 					netease-cloud-music-current-song nil
 					netease-cloud-music-play-status "")
-		(when (get-buffer "*netease-cloud-music-play*")
-			(kill-buffer "*netease-cloud-music-play*"))))
+		(when (get-buffer "*netease-cloud-music-play:process*")
+			(kill-buffer "*netease-cloud-music-play:process*"))))
 
 (defun netease-cloud-music-close ()
 	"Close Netease Music and kill the process."
@@ -345,10 +346,10 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
 			(error "[Netease-Cloud-Music]: There's no song-id!")
 		(netease-cloud-music-kill-process)
 		(setq netease-cloud-music-process
-					(async-start-process "netease-cloud-music-play"
-															 netease-cloud-music-player
+					(async-start-process "netease-cloud-music-play:process"
+															 (car netease-cloud-music-player-command)
 															 nil
-															 "-slave"
+															 (nth 1 netease-cloud-music-player-command)
 															 (concat netease-cloud-music-song-link
 																			 (format "%s"
 																							 song-id))))
@@ -488,8 +489,12 @@ Otherwise return nil."
 		(process-send-string netease-cloud-music-process "pause\n")
 		(pcase netease-cloud-music-process-status
 			("playing"
+			 (process-send-string netease-cloud-music-process
+														(nth 3 netease-cloud-music-player-command))
 			 (setq netease-cloud-music-process-status "paused"))
 			("paused"
+			 (process-send-string netease-cloud-music-process
+														(nth 2 netease-cloud-music-player-command))
 			 (setq netease-cloud-music-process-status "playing")
 			 (netease-cloud-music-interface-init)))
 		(netease-cloud-music-interface-init)))
@@ -507,17 +512,15 @@ Otherwise return nil."
 	"Seek forward the current song."
 	(interactive)
 	(when (netease-cloud-music-process-live-p)
-		(process-send-string netease-cloud-music-process (format
-																											"seek %s\n"
-																											netease-cloud-music-seek-second))))
+		(process-send-string netease-cloud-music-process
+												 (nth 4 netease-cloud-music-player-command))))
 
 (defun netease-cloud-music-seek-backward ()
 	"Seek backward the current song."
 	(interactive)
 	(when (netease-cloud-music-process-live-p)
-		(process-send-string netease-cloud-music-process (format
-																											"seek -%s\n"
-																											netease-cloud-music-seek-second))))
+		(process-send-string netease-cloud-music-process
+												 (nth 5 netease-cloud-music-player-command))))
 
 (defun netease-cloud-music-add-to-playlist ()
 	"Add the current playing song to playlist."

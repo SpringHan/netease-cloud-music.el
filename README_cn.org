@@ -5,14 +5,14 @@
 
   [[./demo.png]]
 ** 依赖
-   - mplayer
+   - ~mplayer~ 或者其他能够播放在线音乐、快进快退、暂停歌曲的播放器
 
      这是一个播放歌曲的播放器
      如果你是一名 Arch 用户, 你可以用这条命令安装它: ~sudo pacman -S mplayer~
-   - request
+   - ~request~
 
      这是一个 Emacs 包裹, 你能用 ~M-x package-install RET request RET~ 安装它
-   - async
+   - ~async~
 
      这是一个 Emacs 包裹，你可以用 ~M-x package-install RET async RET~ 安装他
 ** 安装
@@ -54,12 +54,23 @@
 
      可通过此函数开启关闭循环模式。
 ** 变量
+   - ~netease-cloud-music-player-command~ (list)
+
+     这个函数的值包括：播放器的命令、播放在线歌曲的参数、继续播放的进程信息、停止播放的进程信息、快进进程信息、快退进程信息。
+
+     默认值： ~'("mplayer" "-slave" "pause\n" "pause\n" "seek 5\n" "seek -5\n")~
+
+     如果你使用 ~mplayer~ 作为你的音乐播放器，那么你不需要花时间配置这个变量。
+
+     提示：你可以在快进快退的进程信息里定义它的秒数，下面是个例子：
+
+     #+begin_src emacs-lisp
+       (setq netease-cloud-music-player-command '("mplayer" "-slave" "pause\n" "pause\n" "seek 5\n" "seek -5\n"))
+     #+end_src
+
    - ~netease-cloud-music-repeat-mode~ (symbol)
 
      此变量为循环模式的开关，如果被赋值为 ~t~ ，则在播放完当前歌曲或者歌单中的音乐后重新播放。默认开启。
 
-   - ~netease-cloud-music-seek-second~ (string)
-
-     此变量为快进快退操作的执行秒数，默认为 "5"。
 ** 许可
    GPL-3.0

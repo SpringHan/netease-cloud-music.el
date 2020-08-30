@@ -5,14 +5,14 @@
 
   [[./demo.png]]
 ** Dependences
-   - mplayer
+   - ~mplayer~ or other players can play online songs, seek forward, seek backward and pause songs
 
      This is the player for playing the songs.
      If you are an Arch user, you can install it by: ~sudo pacman -S mplayer~
-   - request
+   - ~request~
 
      This is a emacs package, you can install it by: ~M-x package-install RET request RET~
-   - async
+   - ~async~
 
      This is a emacs package, you can install it by: ~M-x package-install RET async RET~
 ** Installation
@@ -55,12 +55,23 @@
 
      You can use this function to change the repeat mode.
 ** Variables
+   - ~netease-cloud-music-player-command~ (list)
+
+     The value includes player command, play online songs argument, continue playing process message, pause playing process message, seek forward process message and seek backward process message.
+
+     Default value: ~'("mplayer" "-slave" "pause\n" "pause\n" "seek 5\n" "seek -5\n")~
+
+     If you use ~mplayer~ as your music player, you need't to spend time on this variable.You just need to enjoy listening.
+
+     Tips: You can define the seek action's second in seek process message like this:
+
+     #+begin_src emacs-lisp
+       (setq netease-cloud-music-player-command '("mplayer" "-slave" "pause\n" "pause\n" "seek 5\n" "seek -5\n"))
+     #+end_src
+
    - ~netease-cloud-music-repeat-mode~ (symbol)
 
      If you set it to ~t~, it will play the current song or song in playlist repeat after finishing play it.
 
-   - ~netease-cloud-music-seek-second~ (string)
-
-     This variable can change the second when you do the seek action.Default is "5".
 ** License
    GPL-3.0
