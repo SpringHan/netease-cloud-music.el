@@ -29,22 +29,23 @@
         (require 'netease-cloud-music)
       #+end_src
 ** Keybindings
-   | Key | Function                           |
-   |-----+------------------------------------|
-   | a   | Add the current song into playlist |
-   | r   | Change the repeat mode             |
-   | f   | Search song by its name            |
-   | P   | Play all the songs in playlist     |
-   | p   | Play the previous song in playlist |
-   | n   | Play the next song in playlist     |
-   | x   | Kill current playing song          |
-   | >   | Seek forward                       |
-   | <   | Seek backward                      |
-   | ?   | Help                               |
-   | h   | Help                               |
-   | RET | Play the playlist song at point    |
-   | SPC | Pause or continue the current song |
-   | q   | Quit Netease Cloud Music           |
+   | Key | Function                               |
+   |-----+----------------------------------------|
+   | a   | Add the current song into playlist     |
+   | r   | Change the repeat mode                 |
+   | d   | Delete the song at point from playlist |
+   | f   | Search song by its name                |
+   | P   | Play all the songs in playlist         |
+   | p   | Play the previous song in playlist     |
+   | n   | Play the next song in playlist         |
+   | x   | Kill current playing song              |
+   | >   | Seek forward                           |
+   | <   | Seek backward                          |
+   | ?   | Help                                   |
+   | h   | Help                                   |
+   | RET | Play the playlist song at point        |
+   | SPC | Pause or continue the current song     |
+   | q   | Quit Netease Cloud Music               |
 ** Function
    - ~netease-cloud-music~
 

@@ -94,6 +94,7 @@ pause-message seek-forward-message seek-backward-message")
 		(define-key map (kbd "SPC") 'netease-cloud-music-pause-or-continue)
 		(define-key map (kbd "RET") 'netease-cloud-music-play-song-at-point)
 		(define-key map "f" 'netease-cloud-music-search-song)
+		(define-key map "d" 'netease-cloud-music-delete-song-from-playlist)
 		(define-key map "P" 'netease-cloud-music-play-playlist)
 		(define-key map "p" 'netease-cloud-music-play-previous-song)
 		(define-key map "n" 'netease-cloud-music-play-next-song)
@@ -188,13 +189,13 @@ Otherwise return nil."
 	(let (result)
 		(pcase type
 			('song
-			 (setq result (read-minibuffer "The info of the song is here, do you want to listen it?(y/n)" "y"))
-			 (when (string= result "y")
-				 (cl-return-from netease-cloud-music-ask t)))
+			 (setq result (read-minibuffer "The info of the song is here, do you want to listen it?(y/n)" "y")))
 			('add-song-to-playlist
-			 (setq result (read-minibuffer "Do you want to add the current song into playlist?(y/n)" "y"))
-			 (when (string= result "y")
-				 (cl-return-from netease-cloud-music-ask t))))))
+			 (setq result (read-minibuffer "Do you want to add the current song into playlist?(y/n)" "y")))
+			('delete-song-from-playlist
+			 (setq result (read-minibuffer "Do you want to delete the song from playlist?(y/n)" "y"))))
+		(when (string= result "y")
+			(cl-return-from netease-cloud-music-ask t))))
 
 (cl-defun netease-cloud-music-read-json (data &key sid sname aid aname)
 	"Read the Netease Music json DATA and return the result.
@@ -379,8 +380,13 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
 	"Check if the SONG-NAME is in the playlist.
 If the song is included, return t.
 Otherwise return nil."
-	(let ((include nil))
-		(dolist (song netease-cloud-music-playlist)
+	(let ((include nil)
+				(playlist (with-temp-buffer
+										(insert-file-contents (concat
+																					 netease-cloud-music-cache-directory
+																					 "playlist.txt"))
+										(split-string (buffer-string) "\n" t))))
+		(dolist (song playlist)
 			(when (string= song-name (concat song "\n"))
 				(setq include t)))
 		include))
@@ -486,7 +492,6 @@ Otherwise return nil."
 	"Pause or continue play the current song."
 	(interactive)
 	(when (netease-cloud-music-process-live-p)
-		(process-send-string netease-cloud-music-process "pause\n")
 		(pcase netease-cloud-music-process-status
 			("playing"
 			 (process-send-string netease-cloud-music-process
@@ -540,6 +545,26 @@ Otherwise return nil."
 									 (netease-cloud-music-get-playlist 'string))))
 				(message "[Netease-Cloud-Music]: %s is added to playlist."
 								 (car netease-cloud-music-current-song)))
+			(netease-cloud-music-interface-init))))
+
+(defun netease-cloud-music-delete-song-from-playlist ()
+	"Delete the song at point from playlist."
+	(interactive)
+	(let ((song-name (thing-at-point 'line t))
+				(playlist-songs (with-temp-buffer
+													(insert-file-contents (concat
+																								 netease-cloud-music-cache-directory
+																								 "playlist.txt"))
+													(split-string (buffer-string) "\n" t))))
+		(when (netease-cloud-music-ask 'delete-song-from-playlist)
+			(if (null (netease-cloud-music-playlist-include-song song-name))
+					(error "[Netease-Cloud-Music]: The song at point is not included in playlist.")
+				(with-temp-file (concat netease-cloud-music-cache-directory
+																"playlist.txt")
+					(dolist (song playlist-songs)
+						(unless (string= song-name (concat song "\n"))
+							(insert (format "%s\n" song)))))
+				(message "[Netease-Cloud-Music]: Delete the song from playlist."))
 			(netease-cloud-music-interface-init))))
 
 (defun netease-cloud-music-get-playlist (type)
