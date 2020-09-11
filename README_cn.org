@@ -69,9 +69,9 @@
        (setq netease-cloud-music-player-command '("mplayer" "-slave" "pause\n" "pause\n" "seek 5\n" "seek -5\n"))
      #+end_src
 
-   - ~netease-cloud-music-repeat-mode~ (symbol)
+   - ~netease-cloud-music-buffer-name~ (String)
 
-     此变量为循环模式的开关，如果被赋值为 ~t~ ，则在播放完当前歌曲或者歌单中的音乐后重新播放。默认开启。
+     你可以通过改变这个变量的值从而设置网易云音乐的buffer。默认值：~"*Netease-Cloud-Music*"~
 
 ** 许可
    GPL-3.0

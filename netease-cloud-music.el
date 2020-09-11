@@ -9,7 +9,7 @@
 ;; Version: 1.0
 ;; License: GPL-3.0
 
-;; Last Change: 2020-08-30
+;; Last Change: 2020-09-11
 ;; Repository: https://github.com/SpringHan/netease-cloud-music.el
 
 (eval-when-compile
@@ -67,7 +67,7 @@ It can be song or playlist."
 	:type 'number
 	:group 'netease-cloud-music)
 
-(defconst netease-cloud-music-buffer-name "*Netease-Cloud-Music*"
+(defvar netease-cloud-music-buffer-name "*Netease-Cloud-Music*"
 	"The name of Netease Music buffer.")
 
 (defconst netease-cloud-music-search-api
@@ -85,8 +85,8 @@ Its format is lick this:
 '(command play-online-songs-arg continue-message
 pause-message seek-forward-message seek-backward-message")
 
-(defvar netease-cloud-music-repeat-mode t
-	"The playlist repeat mode.")
+(defvar netease-cloud-music-repeat-mode ""
+	"The repeat mode for Netease Cloud Music.")
 
 (defvar netease-cloud-music-mode-map
 	(let ((map (make-sparse-keymap)))
@@ -151,7 +151,8 @@ Otherwise return nil."
 	"Close Netease Music and kill the process."
 	(interactive)
 	(netease-cloud-music-kill-process)
-	(setq netease-cloud-music-process-status "")
+	(setq netease-cloud-music-process-status ""
+				netease-cloud-music-repeat-mode "")
 	(setq netease-cloud-music-playlist-song-index 0)
 	(kill-buffer netease-cloud-music-buffer-name))
 
@@ -253,20 +254,30 @@ SONG-NAME is a string."
 				 :content (list result-song-name result-artist-name)
 				 :type 'song-ask)
 				(if (netease-cloud-music-ask 'song)
-						(netease-cloud-music-play result-song-id result-song-name result-artist-name "song")
+						(progn
+							(when (string= netease-cloud-music-repeat-mode "")
+								(setq netease-cloud-music-repeat-mode "song"))
+							(netease-cloud-music-play result-song-id result-song-name result-artist-name "song"))
 					(message "[Netease-Cloud-Music]: Now, the song catched won't be played.")
 					(netease-cloud-music-interface-init))))))
 
 (defun netease-cloud-music-change-repeat-mode ()
 	"Change the repeat mode."
 	(interactive)
-	(if netease-cloud-music-repeat-mode
-			(progn
-				(setq netease-cloud-music-repeat-mode nil)
-				(message "[Netease-Cloud-Music]: Now, repeat mode is opened."))
-		(setq netease-cloud-music-repeat-mode t)
-		(message "[Netease-Cloud-Music]: Now, repeat mode is closed."))
-	(netease-cloud-music-interface-init))
+	(if (string= netease-cloud-music-repeat-mode "")
+			(message
+			 "[Netease-Cloud-Music]: The repeat mode is in the initialization state. when you start playing song, it'll be set.")
+		(cond ((string= netease-cloud-music-play-status "song")
+					 (if (string= netease-cloud-music-repeat-mode "song")
+							 (setq netease-cloud-music-repeat-mode "off")
+						 (setq netease-cloud-music-repeat-mode "song")))
+					((string= netease-cloud-music-play-status "playlist")
+					 (if (string= netease-cloud-music-repeat-mode "off")
+							 (setq netease-cloud-music-repeat-mode "song")
+						 (if (string= netease-cloud-music-repeat-mode "song")
+								 (setq netease-cloud-music-repeat-mode "playlist")
+							 (setq netease-cloud-music-repeat-mode "off")))))
+		(netease-cloud-music-interface-init)))
 
 (cl-defun netease-cloud-music-interface-init (&key content type)
 	"Initialize the Netease Music buffer interface.
@@ -289,9 +300,11 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
 		(insert (concat
 						 (propertize "\nRepeat: "
 												 'face '(:foreground "DeepSkyBlue"))
-						 (propertize (if netease-cloud-music-repeat-mode
-														 "ON\n"
-													 "OFF\n")
+						 (propertize (if (string= netease-cloud-music-repeat-mode "song")
+														 "SONG\n"
+													 (if (string= netease-cloud-music-repeat-mode "playlist")
+															 "PLAYLIST\n"
+														 "OFF\n"))
 												 'face '(:foreground "LightPink" :weight bold))))
 		;; When the type is song, insert the current song info.
 		(when (not (null netease-cloud-music-current-song))
@@ -371,6 +384,8 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
 								netease-cloud-music-playlist)
 					 :type 'song)
 					:sid t :sname t :aname t)))
+		(when (string= netease-cloud-music-repeat-mode "")
+			(setq netease-cloud-music-repeat-mode "playlist"))
 		(netease-cloud-music-play (car result)
 															(nth 1 result)
 															(nth 3 result)
@@ -428,6 +443,8 @@ Otherwise return nil."
 													 (netease-cloud-music-request-from-api
 														song-info :type 'song)
 													 :sid t :sname t :aname t))
+			(when (string= netease-cloud-music-repeat-mode "")
+				(setq netease-cloud-music-repeat-mode "song"))
 			(netease-cloud-music-play (car search-result)
 																(nth 1 search-result)
 																(nth 3 search-result)
@@ -436,9 +453,11 @@ Otherwise return nil."
 (defun netease-cloud-music-process-sentinel (process event)
 	"The sentinel of Netease Music process."
 	(when (string-match "\\(exit\\|finished\\)" event)
-		(cond ((string= netease-cloud-music-play-status "song")
+		(cond ((string= netease-cloud-music-repeat-mode "off")
+					 (netease-cloud-music-kill-current-song))
+					((string= netease-cloud-music-play-status "song")
 					 (setq netease-cloud-music-process-status "")
-					 (if (null netease-cloud-music-repeat-mode)
+					 (if (string= netease-cloud-music-repeat-mode "off")
 							 (netease-cloud-music-kill-process)
 						 (netease-cloud-music-play
 							(nth 2 netease-cloud-music-current-song)
@@ -446,12 +465,22 @@ Otherwise return nil."
 							(nth 1 netease-cloud-music-current-song)
 							"song"))
 					 (netease-cloud-music-interface-init)
-					 (cond ((and (string-match "\\(finished\\)" event) (null netease-cloud-music-repeat-mode))
+					 (cond ((and (string-match "\\(finished\\)" event) (string= netease-cloud-music-repeat-mode "off"))
 									(message "[Netease-Cloud-Music]: The current song is over."))
 								 ((string-match "\\(exit\\)" event)
 									(message "[Netease-Cloud-Music]: There is a problem when playing the current song."))))
 					((string= netease-cloud-music-play-status "playlist")
-					 (netease-cloud-music-play-next-song)))))
+					 (if (string= netease-cloud-music-repeat-mode "playlist")
+							 (netease-cloud-music-play-next-song)
+						 (if (string= netease-cloud-music-repeat-mode "off")
+								 (progn
+									 (netease-cloud-music-kill-current-song)
+									 (message "[Netease-Cloud-Music]: The current song is over."))
+							 (netease-cloud-music-play
+								(nth 2 netease-cloud-music-current-song)
+								(car netease-cloud-music-current-song)
+								(nth 1 netease-cloud-music-current-song)
+								"playlist")))))))
 
 (defun netease-cloud-music-play-previous-song ()
 	"Play the previous song in the playlist."
@@ -477,11 +506,9 @@ Otherwise return nil."
 		(let ((next-song-index
 					 (+ netease-cloud-music-playlist-song-index 1)))
 			(if (null (nth next-song-index netease-cloud-music-playlist))
-					(if (null netease-cloud-music-repeat-mode)
+					(if (string= netease-cloud-music-repeat-mode "off")
 							(progn
-								(setq netease-cloud-music-process-status "")
-								(netease-cloud-music-kill-process)
-								(netease-cloud-music-interface-init)
+								(netease-cloud-music-kill-current-song)
 								(message "[Netease-Cloud-Music]: The playlist songs over."))
 						(setq netease-cloud-music-playlist-song-index 0)
 						(netease-cloud-music-playlist-play))

@@ -70,9 +70,9 @@
        (setq netease-cloud-music-player-command '("mplayer" "-slave" "pause\n" "pause\n" "seek 5\n" "seek -5\n"))
      #+end_src
 
-   - ~netease-cloud-music-repeat-mode~ (symbol)
+   - ~netease-cloud-music-buffer-name~ (string)
 
-     If you set it to ~t~, it will play the current song or song in playlist repeat after finishing play it.
+     You can set the Netease Cloud Music buffer by changing this variable. Default: ~"*Netease-Cloud-Music*"~
 
 ** License
    GPL-3.0
