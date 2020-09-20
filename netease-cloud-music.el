@@ -486,7 +486,7 @@ Otherwise return nil."
 	"Play the previous song in the playlist."
 	(interactive)
 	(if (not (string= netease-cloud-music-play-status "playlist"))
-			(error "[Netease-Cloud-Music]: Now it's not playlist play mode.")
+			(previous-line)
 		(let ((previous-song-index
 					 (- netease-cloud-music-playlist-song-index 1)))
 			(if (or (null (nth previous-song-index netease-cloud-music-playlist))
@@ -502,7 +502,7 @@ Otherwise return nil."
 	"Play the next song in the playlist."
 	(interactive)
 	(if (not (string= netease-cloud-music-play-status "playlist"))
-			(error "[Netease-Cloud-Music]: Now it's not playlist play mode.")
+			(next-line)
 		(let ((next-song-index
 					 (+ netease-cloud-music-playlist-song-index 1)))
 			(if (null (nth next-song-index netease-cloud-music-playlist))
