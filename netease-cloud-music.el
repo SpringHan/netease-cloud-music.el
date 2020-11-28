@@ -67,6 +67,15 @@ It can be song or playlist."
 	:type 'number
 	:group 'netease-cloud-music)
 
+(defcustom netease-cloud-music-player-command
+	'("mplayer" "-slave" "pause\n" "pause\n" "seek 5\n" "seek -5\n")
+	"The player command for playing the online songs.
+Its format is lick this:
+'(command play-online-songs-arg continue-message
+pause-message seek-forward-message seek-backward-message"
+  :type 'list
+  :group 'netease-cloud-music)
+
 (defvar netease-cloud-music-buffer-name "*Netease-Cloud-Music*"
 	"The name of Netease Music buffer.")
 
@@ -77,13 +86,6 @@ It can be song or playlist."
 (defconst netease-cloud-music-song-link
 	"http://music.163.com/song/media/outer/url?id="
 	"The song link of Netease Music.")
-
-(defvar netease-cloud-music-player-command
-	'("mplayer" "-slave" "pause\n" "pause\n" "seek 5\n" "seek -5\n")
-	"The player command for playing the online songs.
-Its format is lick this:
-'(command play-online-songs-arg continue-message
-pause-message seek-forward-message seek-backward-message")
 
 (defvar netease-cloud-music-repeat-mode ""
 	"The repeat mode for Netease Cloud Music.")

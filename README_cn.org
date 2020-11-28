@@ -60,6 +60,8 @@
      这个函数的值包括：播放器的命令、播放在线歌曲的参数、继续播放的进程信息、停止播放的进程信息、快进进程信息、快退进程信息。
 
      默认值： ~'("mplayer" "-slave" "pause\n" "pause\n" "seek 5\n" "seek -5\n")~
+     
+     更多可用的命令[[https://github.com/SpringHan/netease-cloud-music.el/issues/3][见这里]].
 
      如果你使用 ~mplayer~ 作为你的音乐播放器，那么你不需要花时间配置这个变量。
 

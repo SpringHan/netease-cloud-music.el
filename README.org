@@ -61,6 +61,8 @@
      The value includes player command, play online songs argument, continue playing process message, pause playing process message, seek forward process message and seek backward process message.
 
      Default value: ~'("mplayer" "-slave" "pause\n" "pause\n" "seek 5\n" "seek -5\n")~
+     
+     More available commands [[https://github.com/SpringHan/netease-cloud-music.el/issues/3][See Here]].
 
      If you use ~mplayer~ as your music player, you need't to spend time on this variable.You just need to enjoy listening.
 
