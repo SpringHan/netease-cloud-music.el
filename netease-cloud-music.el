@@ -68,7 +68,7 @@ It can be song or playlist."
 	:group 'netease-cloud-music)
 
 (defcustom netease-cloud-music-player-command
-	'("mplayer" "-slave" "pause\n" "pause\n" "seek 5\n" "seek -5\n")
+	'("mpv" "pause\n" "pause\n" "seek 5\n" "seek -5\n")
 	"The player command for playing the online songs.
 Its format is lick this:
 '(command play-online-songs-arg continue-message

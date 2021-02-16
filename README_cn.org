@@ -5,7 +5,7 @@
 
   [[./demo.png]]
 ** 依赖
-   - ~mplayer~ 或者其他能够播放在线音乐、快进快退、暂停歌曲的播放器
+   - ~mpv~ 或者其他能够播放在线音乐、快进快退、暂停歌曲的播放器
 
      这是一个播放歌曲的播放器
      如果你是一名 Arch 用户, 你可以用这条命令安装它: ~sudo pacman -S mplayer~
@@ -57,9 +57,9 @@
 ** 变量
    - ~netease-cloud-music-player-command~ (list)
 
-     这个函数的值包括：播放器的命令、播放在线歌曲的参数、继续播放的进程信息、停止播放的进程信息、快进进程信息、快退进程信息。
+     这个函数的值包括：播放器的命令、继续播放的进程信息、停止播放的进程信息、快进进程信息、快退进程信息。
 
-     默认值： ~'("mplayer" "-slave" "pause\n" "pause\n" "seek 5\n" "seek -5\n")~
+     默认值： ~'("mpv" "pause\n" "pause\n" "seek 5\n" "seek -5\n")~
      
      更多可用的命令[[https://github.com/SpringHan/netease-cloud-music.el/issues/3][见这里]].
 
@@ -68,7 +68,7 @@
      提示：你可以在快进快退的进程信息里定义它的秒数，下面是个例子：
 
      #+begin_src emacs-lisp
-       (setq netease-cloud-music-player-command '("mplayer" "-slave" "pause\n" "pause\n" "seek 5\n" "seek -5\n"))
+       (setq netease-cloud-music-player-command '("mpv" "pause\n" "pause\n" "seek 5\n" "seek -5\n"))
      #+end_src
 
    - ~netease-cloud-music-buffer-name~ (String)
