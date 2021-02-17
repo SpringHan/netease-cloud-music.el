@@ -229,9 +229,11 @@ NO-RESULT-LIMIT means do not limit the songs catch."
   "Check if ELE is in LIST.
 Like `memq', but use `equal'."
   (catch 'result
-    (dolist (item list)
-      (when (equal ele item)
-        (throw 'result t)))))
+    (let ((index 0))
+      (dolist (item list)
+        (when (equal ele item)
+          (throw 'result index))
+        (setq index (1+ index))))))
 
 (provide 'netease-cloud-music-functions)
 

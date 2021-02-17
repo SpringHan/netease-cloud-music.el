@@ -101,7 +101,7 @@ It can be song or playlist."
   :group 'netease-cloud-music)
 
 (defcustom netease-cloud-music-player-command
-  '("mpv" "pause\n" "seek 5\n" "seek -5\n")
+  '("mpv" "pause\n" "seek 5" "seek -5")
   "The player command for playing the online songs.
 Its format is lick this:
 '(command play-online-songs-arg continue-message
@@ -127,6 +127,9 @@ pause-message seek-forward-message seek-backward-message"
 
 (defvar netease-cloud-music-lyric nil
   "The Netease Music lyric.")
+
+(defvar netease-cloud-music-lyrics nil
+  "The lyrics that will not be changed when playing.")
 
 (defvar netease-cloud-music-current-lyric nil
   "Current lyric.")
@@ -531,7 +534,10 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
                          " *netease-cloud-music-play:process*"
                          (car netease-cloud-music-player-command)
                          (concat netease-cloud-music-song-link
-                                 (number-to-string song-id))))
+                                 (number-to-string song-id))
+                         (when (string= (car netease-cloud-music-player-command)
+                                        "mpv")
+                           "--input-ipc-server=/tmp/mpvserver")))
     (set-process-sentinel netease-cloud-music-process
                           'netease-cloud-music-process-sentinel)
     (if netease-cloud-music-show-lyric
@@ -542,6 +548,7 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
       (setq netease-cloud-music-lyric nil))
     (if (and netease-cloud-music-lyric netease-cloud-music-show-lyric)
         (setq netease-cloud-music-lyric (split-string netease-cloud-music-lyric "\n")
+              netease-cloud-music-lyrics netease-cloud-music-lyric
               netease-cloud-music-lyric-timer
               (run-with-timer
                0.5 1
@@ -553,22 +560,25 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
                        (when (and (search-backward "[K[0mA" nil t)
                                   (not (string= netease-cloud-music-play-status
                                                 "paused")))
-                         (let ((current-lyric (car netease-cloud-music-lyric))
-                               (current-song-time (buffer-substring-no-properties (+ 12 (point))
-                                                                                  (+ 17 (point)))))
-                           (ignore-errors
-                             (unless (string> (substring current-lyric 1 6) current-song-time)
-                               (setq netease-cloud-music-current-lyric
-                                     (ignore-errors
-                                       (match-string
-                                        (if (string-match "\\[\\(.*\\):\\(.*\\)\\.\\(.*\\)\\]\\(.*\\)" current-lyric)
-                                            4
-                                          (when (string-match
-                                                 "\\[\\(.*\\):\\(.*\\)\\]\\(.*\\)"
-                                                 current-lyric)
-                                            3))
-                                        current-lyric)))
-                               (setq netease-cloud-music-lyric (cdr netease-cloud-music-lyric)))))))
+                         (let* ((current-lyric (car netease-cloud-music-lyric))
+                                (current-song-time (buffer-substring-no-properties (+ 12 (point))
+                                                                                   (+ 17 (point))))
+                                (current-lyric-time (ignore-errors
+                                                      (substring current-lyric 1 6))))
+                           (when (and (stringp current-lyric-time)
+                                      (not
+                                       (netease-cloud-music--string>
+                                        current-lyric-time current-song-time)))
+                             (setq netease-cloud-music-current-lyric
+                                   (match-string
+                                    (if (string-match "\\[\\(.*\\):\\(.*\\)\\.\\(.*\\)\\]\\(.*\\)" current-lyric)
+                                        4
+                                      (when (string-match
+                                             "\\[\\(.*\\):\\(.*\\)\\]\\(.*\\)"
+                                             current-lyric)
+                                        3))
+                                    current-lyric))
+                             (setq netease-cloud-music-lyric (cdr netease-cloud-music-lyric))))))
                    (netease-cloud-cancel-timer netease-cloud-music-lyric-timer))))))
     (setq netease-cloud-music-process-status "playing")
     (setq netease-cloud-music-current-song
@@ -679,15 +689,27 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
   "Seek forward the current song."
   (interactive)
   (when (netease-cloud-music-process-live-p)
-    (process-send-string netease-cloud-music-process
-                         (nth 2 netease-cloud-music-player-command))))
+    (if (string= "mpv" (car netease-cloud-music-player-command))
+        (shell-command (concat "echo '"
+                               (nth 2 netease-cloud-music-player-command)
+                               "' | socat - /tmp/mpvserver")
+                       nil nil)
+      (process-send-string netease-cloud-music-process
+                           (nth 3 netease-cloud-music-player-command)))))
 
 (defun netease-cloud-music-seek-backward ()
   "Seek backward the current song."
   (interactive)
   (when (netease-cloud-music-process-live-p)
-    (process-send-string netease-cloud-music-process
-                         (nth 3 netease-cloud-music-player-command))))
+    (if (string= "mpv" (car netease-cloud-music-player-command))
+        (shell-command (concat "echo '"
+                               (nth 3 netease-cloud-music-player-command)
+                               "' | socat - /tmp/mpvserver")
+                       nil nil)
+      (process-send-string netease-cloud-music-process
+                           (nth 3 netease-cloud-music-player-command)))
+    (when netease-cloud-music-show-lyric
+      (setq netease-cloud-music-lyric netease-cloud-music-lyrics))))
 
 (defun netease-cloud-music-add-header-lyrics ()
   "Add lyrics in current header."
@@ -736,6 +758,25 @@ ALL means eval it in all of the `netease-cloud-music-showed-lyric-buffer'."
                       'face 'font-lock-function-name-face)
           ": "
           netease-cloud-music-current-lyric))
+
+(defun netease-cloud-music--string> (string1 string2)
+  "Check if STRING1 is bigger than STRING2.
+Mainly used to check the time."
+  (let (string1-prefix string1-end
+                       string2-prefix string2-end)
+    (progn
+      (string-match "\\(.*\\):\\(.*\\)" string1)
+      (setq string1-prefix (string-to-number (match-string 1 string1))
+            string1-end (string-to-number (match-string 2 string1)))
+
+      (string-match "\\(.*\\):\\(.*\\)" string2)
+      (setq string2-prefix (string-to-number (match-string 1 string2))
+            string2-end (string-to-number (match-string 2 string2))))
+    (if (> string1-prefix string2-prefix)
+        t
+      (when (= string1-prefix string2-prefix)
+        (when (> string1-end string2-end)
+          t)))))
 
 ;;; For old user
 (defun netease-cloud-music-insert-playlist (file-path)

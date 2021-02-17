@@ -8,13 +8,13 @@
    - ~mpv~ or other players can play online songs, seek forward, seek backward and pause songs
 
      This is the player for playing the songs.
-     If you are an Arch user, you can install it by: ~sudo pacman -S mplayer~
+     If you are an Arch user, you can install it by: ~sudo pacman -S mpv~
    - ~request~
 
      This is a emacs package, you can install it by: ~M-x package-install RET request RET~
-   - ~async~
+   - ~socat~
 
-     This is a emacs package, you can install it by: ~M-x package-install RET async RET~
+     This is a program about process, if you use ~mpv~ as your player, you should install it.
 ** Installation
    1. Clone it.
       #+begin_src shell
