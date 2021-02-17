@@ -30,6 +30,7 @@
 
 ;;; Code:
 
+(require 'cl-lib)
 (require 'request)
 (require 'json)
 
@@ -690,22 +691,28 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
   (interactive)
   (when (netease-cloud-music-process-live-p)
     (if (string= "mpv" (car netease-cloud-music-player-command))
-        (shell-command (concat "echo '"
-                               (nth 2 netease-cloud-music-player-command)
-                               "' | socat - /tmp/mpvserver")
-                       nil nil)
+        (progn
+          (shell-command (concat "echo '"
+                                 (nth 2 netease-cloud-music-player-command)
+                                 "' | socat - /tmp/mpvserver")
+                         "*shell-output*" nil)
+          (when (get-buffer "*shell-output*")
+            (kill-buffer "*shell-output*")))
       (process-send-string netease-cloud-music-process
-                           (nth 3 netease-cloud-music-player-command)))))
+                           (nth 2 netease-cloud-music-player-command)))))
 
 (defun netease-cloud-music-seek-backward ()
   "Seek backward the current song."
   (interactive)
   (when (netease-cloud-music-process-live-p)
     (if (string= "mpv" (car netease-cloud-music-player-command))
-        (shell-command (concat "echo '"
-                               (nth 3 netease-cloud-music-player-command)
-                               "' | socat - /tmp/mpvserver")
-                       nil nil)
+        (progn
+          (shell-command (concat "echo '"
+                                 (nth 3 netease-cloud-music-player-command)
+                                 "' | socat - /tmp/mpvserver")
+                         "*shell-output*" nil)
+          (when (get-buffer "*shell-output*")
+            (kill-buffer "*shell-output*")))
       (process-send-string netease-cloud-music-process
                            (nth 3 netease-cloud-music-player-command)))
     (when netease-cloud-music-show-lyric
