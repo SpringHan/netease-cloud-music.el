@@ -571,14 +571,15 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
                                        (netease-cloud-music--string>
                                         current-lyric-time current-song-time)))
                              (setq netease-cloud-music-current-lyric
-                                   (match-string
-                                    (if (string-match "\\[\\(.*\\):\\(.*\\)\\.\\(.*\\)\\]\\(.*\\)" current-lyric)
-                                        4
-                                      (when (string-match
-                                             "\\[\\(.*\\):\\(.*\\)\\]\\(.*\\)"
-                                             current-lyric)
-                                        3))
-                                    current-lyric))
+                                   (ignore-errors
+                                     (match-string
+                                      (if (string-match "\\[\\(.*\\):\\(.*\\)\\.\\(.*\\)\\]\\(.*\\)" current-lyric)
+                                          4
+                                        (when (string-match
+                                               "\\[\\(.*\\):\\(.*\\)\\]\\(.*\\)"
+                                               current-lyric)
+                                          3))
+                                      current-lyric)))
                              (setq netease-cloud-music-lyric (cdr netease-cloud-music-lyric))))))
                    (netease-cloud-cancel-timer netease-cloud-music-lyric-timer))))))
     (setq netease-cloud-music-process-status "playing")
@@ -769,21 +770,22 @@ ALL means eval it in all of the `netease-cloud-music-showed-lyric-buffer'."
 (defun netease-cloud-music--string> (string1 string2)
   "Check if STRING1 is bigger than STRING2.
 Mainly used to check the time."
-  (let (string1-prefix string1-end
-                       string2-prefix string2-end)
-    (progn
-      (string-match "\\(.*\\):\\(.*\\)" string1)
-      (setq string1-prefix (string-to-number (match-string 1 string1))
-            string1-end (string-to-number (match-string 2 string1)))
+  (ignore-errors
+    (let (string1-prefix string1-end
+                         string2-prefix string2-end)
+      (progn
+        (string-match "\\(.*\\):\\(.*\\)" string1)
+        (setq string1-prefix (string-to-number (match-string 1 string1))
+              string1-end (string-to-number (match-string 2 string1)))
 
-      (string-match "\\(.*\\):\\(.*\\)" string2)
-      (setq string2-prefix (string-to-number (match-string 1 string2))
-            string2-end (string-to-number (match-string 2 string2))))
-    (if (> string1-prefix string2-prefix)
-        t
-      (when (= string1-prefix string2-prefix)
-        (when (> string1-end string2-end)
-          t)))))
+        (string-match "\\(.*\\):\\(.*\\)" string2)
+        (setq string2-prefix (string-to-number (match-string 1 string2))
+              string2-end (string-to-number (match-string 2 string2))))
+      (if (> string1-prefix string2-prefix)
+          t
+        (when (= string1-prefix string2-prefix)
+          (when (> string1-end string2-end)
+            t))))))
 
 ;;; For old user
 (defun netease-cloud-music-insert-playlist (file-path)
