@@ -67,6 +67,11 @@ It can be song or playlist."
 	:type 'number
 	:group 'netease-cloud-music)
 
+(defcustom netease-cloud-music-show-lyric t
+	"Weather show lyric."
+	:type 'boolean
+	:group 'netease-cloud-music)
+
 (defcustom netease-cloud-music-player-command
 	'("mpv" "pause\n" "pause\n" "seek 5\n" "seek -5\n")
 	"The player command for playing the online songs.
@@ -78,6 +83,12 @@ pause-message seek-forward-message seek-backward-message"
 
 (defvar netease-cloud-music-buffer-name "*Netease-Cloud-Music*"
 	"The name of Netease Music buffer.")
+
+(defvar netease-cloud-music-lyric-timer nil
+	"The timer of Netease Music lyric.")
+
+(defvar netease-cloud-music-lyric nil
+	"The Netease Music lyric.")
 
 (defconst netease-cloud-music-search-api
 	"http://music.163.com/api/search/get/"
@@ -143,6 +154,8 @@ Otherwise return nil."
 	"Kill the Netease Music process."
 	(when (netease-cloud-music-process-live-p)
 		(delete-process netease-cloud-music-process)
+		(if netease-cloud-music-lyric-timer
+			(cancel-timer netease-cloud-music-lyric-timer))
 		(setq netease-cloud-music-process nil
 					netease-cloud-music-current-song nil
 					netease-cloud-music-play-status "")
@@ -356,6 +369,23 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
 		(setq buffer-read-only t)
 		(goto-line 4)))
 
+(defun netease-cloud-music-get-lyric (song-id)
+	(request
+	;;netease-cloud-music-lyric-api
+	(format "http://music.163.com/api/song/lyric?id=%s&lv=1&kv=1&tv=-1" song-id)
+	:type "GET"
+	:parser 'json-read
+	:success (cl-function
+		(lambda (&key data &allow-other-keys)
+				(setq result data)))
+	:sync t)
+	(let ((value (loop for i in result
+					if (eq (car i) 'lrc)
+					return (cdr i))))
+		(loop for i in value
+			if (eq (car i) 'lyric)
+			return (cdr i))))
+
 (defun netease-cloud-music-play (song-id song-name artist-name play-type)
 	"Play the song by its SONG-ID and update the interface with SONG-NAME"
 	(if (null song-id)
@@ -371,6 +401,24 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
 																							 song-id))))
 		(set-process-sentinel netease-cloud-music-process
 													'netease-cloud-music-process-sentinel)
+		(if netease-cloud-music-show-lyric
+			(setq netease-cloud-music-lyric (netease-cloud-music-get-lyric song-id))
+			(setq netease-cloud-music-lyric nil))
+		(if (and netease-cloud-music-lyric netease-cloud-music-show-lyric)
+			(setq netease-cloud-music-lyric (split-string netease-cloud-music-lyric "\n")
+				netease-cloud-music-lyric-timer (run-with-timer  0.5 1 (lambda ()
+																			(if (and (get-buffer "*netease-cloud-music-play:process*")
+																					(length netease-cloud-music-lyric))
+																				(with-current-buffer "*netease-cloud-music-play:process*"
+																					(goto-char (point-max))
+																					(if (search-backward "[KA: " nil t)
+																						(let ((current-lyric (car netease-cloud-music-lyric))
+																							(current-song-time (buffer-substring-no-properties (+ 8 (point))
+																																				(+ 13 (point)))))
+																						(unless (string> (substring current-lyric 1 6) current-song-time)
+																							(message (substring current-lyric 11))
+																							(setq netease-cloud-music-lyric (cdr netease-cloud-music-lyric))))))
+																				(cancel-timer netease-cloud-music-lyric-timer))))))
 		(setq netease-cloud-music-process-status "playing")
 		(setq netease-cloud-music-current-song
 					`(,song-name ,artist-name ,song-id))
