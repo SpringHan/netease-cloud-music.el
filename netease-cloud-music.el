@@ -3,7 +3,7 @@
 ;; Author: SpringHan
 ;; Maintainer: SpringHan
 ;; Version: 1.5
-;; Package-Requires: ((cl-lib "1.0") (async) (request) (json "1.4"))
+;; Package-Requires: ((cl-lib "1.0") (request) (json "1.4"))
 ;; Homepage: https://github.com/SpringHan/netease-cloud-music.git
 ;; Keywords: Player
 
@@ -707,10 +707,11 @@ ALL means eval it in all of the `netease-cloud-music-showed-lyric-buffer'."
                     netease-cloud-music-showed-lyric-buffer
                   (list (buffer-name (current-buffer))))))
     (mapc #'(lambda (b)
-              (with-current-buffer b
-                (setq header-line-format
-                      (delete '(:eval (netease-cloud-music-show-lyrics))
-                              header-line-format))))
+              (when (get-buffer b)
+                (with-current-buffer b
+                  (setq header-line-format
+                        (delete '(:eval (netease-cloud-music-show-lyrics))
+                                header-line-format)))))
           buffer)
     (if all
         (setq netease-cloud-music-showed-lyric-buffer nil)
