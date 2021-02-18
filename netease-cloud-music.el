@@ -598,8 +598,10 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
   (interactive)
   (when (string= netease-cloud-music-repeat-mode "")
     (setq netease-cloud-music-repeat-mode "playlist"))
-  (let ((current-song (netease-cloud-music--current-song))
-        song)
+  (let (current-song song)
+    (when (string= (buffer-name (current-buffer))
+                   netease-cloud-music-buffer-name)
+      (setq current-song (netease-cloud-music--current-song)))
     (when current-song
       (setq netease-cloud-music-playlist-song-index current-song))
     (setq song
