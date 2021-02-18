@@ -361,7 +361,7 @@ Otherwise return nil."
 
 (defmacro netease-cloud-music-expand-form (&rest form)
   "Expand form in function-form."
-  `(function*
+  `(cl-function
     (lambda (&key data &allow-other-keys)
       ,@form)))
 
