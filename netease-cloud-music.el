@@ -323,7 +323,8 @@ pause-message seek-forward-message seek-backward-message"
 (defun netease-cloud-music-play-song-at-point ()
   "Play the song at point."
   (interactive)
-  (let ((song (netease-cloud-music--current-song)))
+  (let ((song (nth (netease-cloud-music--current-song)
+                   netease-cloud-music-playlist)))
     (when song
       (netease-cloud-music-play
        (car song)
