@@ -192,7 +192,6 @@ LIMIT is the limit for the results, it's a number."
   (when (cdr-safe netease-cloud-music-search-alist)
     (catch 'result
       (dolist (song-list (cdr netease-cloud-music-search-alist))
-        (print song-list)
         (when (and (string= name (nth 1 song-list))
                    (string= artist (nth 3 song-list)))
           (throw 'result song-list))))))
@@ -214,6 +213,24 @@ NO-RESULT-LIMIT means do not limit the songs catch."
         (setq result (append result (list (nth index song-list))))
         (setq index (1+ index))))
     result))
+
+(defun netease-cloud-music--current-song ()
+  "Get the current song at point."
+  (let ((song (substring (thing-at-point 'line) 0 -1))
+        (index 0)
+        name artist)
+    (ignore-errors
+      (progn
+        (string-match "\\(.*\\) - \\(.*\\)" song)
+        (setq name (match-string 1 song)
+              artist (match-string 2 song))))
+    (when (and name artist)
+      (catch 'song-list
+        (dolist (song-info netease-cloud-music-playlist)
+          (when (and (string= name (nth 1 song-info))
+                     (string= artist (nth 3 song-info)))
+            (throw 'song-list index))
+          (setq index (1+ index)))))))
 
 (defun netease-cloud-music--index (ele list)
   "Get the index of ELE in LIST. Use `equal' to check."

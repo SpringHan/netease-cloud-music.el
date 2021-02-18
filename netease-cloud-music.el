@@ -164,6 +164,7 @@ pause-message seek-forward-message seek-backward-message"
     (define-key map ">" 'netease-cloud-music-seek-forward)
     (define-key map "<" 'netease-cloud-music-seek-backward)
     (define-key map "r" 'netease-cloud-music-change-repeat-mode)
+    (define-key map "k" 'netease-cloud-music-clear-playlist)
     (define-key map "?" 'describe-mode)
     (define-key map "h" 'describe-mode)
     map)
@@ -227,12 +228,15 @@ pause-message seek-forward-message seek-backward-message"
                         (string-match "^<<\\(.*\\)>> - \\(.*\\)" content)
                         (cons (match-string 1 content) (match-string 2 content))))
            (song (car-safe song-info))
-           (artist (cdr-safe song-info)))
+           (artist (cdr-safe song-info))
+           song-list)
       (if (not (and song artist))
           (user-error "[Netease-Cloud-Music]: The song info of the song under cursor is error!")
+        (setq song-list (netease-cloud-music--get-song-list song artist))
         (netease-cloud-music-switch-close)
+        (add-to-list 'netease-cloud-music-playlist song-list)
         (netease-cloud-music-play
-         (car-safe (netease-cloud-music--get-song-list song artist))
+         (car-safe song-list)
          song artist "song")))))
 
 (defun netease-cloud-music-switch-next-page ()
@@ -319,13 +323,13 @@ pause-message seek-forward-message seek-backward-message"
 (defun netease-cloud-music-play-song-at-point ()
   "Play the song at point."
   (interactive)
-  (let ((song (nth (- (line-number-at-pos) 8)
-                   netease-cloud-music-playlist)))
-    (netease-cloud-music-play
-     (car song)
-     (nth 1 song)
-     (nth 3 song)
-     "song")))
+  (let ((song (netease-cloud-music--current-song)))
+    (when song
+      (netease-cloud-music-play
+       (car song)
+       (nth 1 song)
+       (nth 3 song)
+       "song"))))
 
 (defun netease-cloud-music-process-live-p ()
   "Check if the Netease Music process is live.
@@ -431,6 +435,7 @@ When TYPE is song-ask, CONTENT can be:
 '(music-name . artist-name)
 
 If CONTENT is nil and TYPE is not song, it will print the init content."
+  (interactive)
   (with-current-buffer netease-cloud-music-buffer-name
     (setq buffer-read-only nil)
     (erase-buffer)
@@ -593,8 +598,12 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
   (interactive)
   (when (string= netease-cloud-music-repeat-mode "")
     (setq netease-cloud-music-repeat-mode "playlist"))
-  (let ((song
-         (nth netease-cloud-music-playlist-song-index netease-cloud-music-playlist)))
+  (let ((current-song (netease-cloud-music--current-song))
+        song)
+    (when current-song
+      (setq netease-cloud-music-playlist-song-index current-song))
+    (setq song
+          (nth netease-cloud-music-playlist-song-index netease-cloud-music-playlist))
     (netease-cloud-music-play (car song)
                               (nth 1 song)
                               (nth 3 song)
@@ -718,6 +727,25 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
                            (nth 3 netease-cloud-music-player-command)))
     (when netease-cloud-music-show-lyric
       (setq netease-cloud-music-lyric netease-cloud-music-lyrics))))
+
+(defun netease-cloud-music-delete-song-from-playlist ()
+  "Delete current song from playlist."
+  (interactive)
+  (let ((song (netease-cloud-music--current-song))
+        (current-line (line-number-at-pos)))
+    (when song
+      (setq netease-cloud-music-playlist
+            (delete (nth song netease-cloud-music-playlist)
+                    netease-cloud-music-playlist))
+      (netease-cloud-music-interface-init)
+      (goto-char (point-min))
+      (forward-line (1- current-line)))))
+
+(defun netease-cloud-music-clear-playlist ()
+  "Clear the playlist and kill current song."
+  (interactive)
+  (setq netease-cloud-music-playlist nil)
+  (netease-cloud-music-kill-current-song))
 
 (defun netease-cloud-music-add-header-lyrics ()
   "Add lyrics in current header."
