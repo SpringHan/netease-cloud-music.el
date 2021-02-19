@@ -126,6 +126,9 @@ pause-message seek-forward-message seek-backward-message"
 (defvar netease-cloud-music-lyric-timer nil
   "The timer of Netease Music lyric.")
 
+(defvar netease-cloud-music-update-lyric-timer nil
+  "The timer for updating lyrics.")
+
 (defvar netease-cloud-music-lyric nil
   "The Netease Music lyric.")
 
@@ -360,7 +363,10 @@ Otherwise return nil."
   (setq netease-cloud-music-process-status ""
         netease-cloud-music-repeat-mode "")
   (setq netease-cloud-music-playlist-song-index 0
-        netease-cloud-music-search-page nil)
+        netease-cloud-music-search-page nil
+        netease-cloud-music-lyric nil
+        netease-cloud-music-lyrics nil
+        netease-cloud-music-update-lyric-timer nil)
   (netease-cloud-music-cancel-timer nil t)
   (kill-buffer netease-cloud-music-buffer-name))
 
@@ -542,9 +548,10 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
                          (car netease-cloud-music-player-command)
                          (concat netease-cloud-music-song-link
                                  (number-to-string song-id))
-                         (when (string= (car netease-cloud-music-player-command)
-                                        "mpv")
-                           "--input-ipc-server=/tmp/mpvserver")))
+                         (if (string= (car netease-cloud-music-player-command)
+                                      "mpv")
+                             "--input-ipc-server=/tmp/mpvserver"
+                           "")))
     (set-process-sentinel netease-cloud-music-process
                           'netease-cloud-music-process-sentinel)
     (if netease-cloud-music-show-lyric
@@ -577,15 +584,7 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
                                        (netease-cloud-music--string>
                                         current-lyric-time current-song-time)))
                              (setq netease-cloud-music-current-lyric
-                                   (ignore-errors
-                                     (match-string
-                                      (if (string-match "\\[\\(.*\\):\\(.*\\)\\.\\(.*\\)\\]\\(.*\\)" current-lyric)
-                                          4
-                                        (when (string-match
-                                               "\\[\\(.*\\):\\(.*\\)\\]\\(.*\\)"
-                                               current-lyric)
-                                          3))
-                                      current-lyric)))
+                                   (netease-cloud-music--current-lyric current-lyric))
                              (setq netease-cloud-music-lyric (cdr netease-cloud-music-lyric))))))
                    (netease-cloud-cancel-timer netease-cloud-music-lyric-timer))))))
     (setq netease-cloud-music-process-status "playing")
@@ -706,7 +705,8 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
           (when (get-buffer "*shell-output*")
             (kill-buffer "*shell-output*")))
       (process-send-string netease-cloud-music-process
-                           (nth 2 netease-cloud-music-player-command)))))
+                           (nth 2 netease-cloud-music-player-command)))
+    (netease-cloud-music-update-lyrics)))
 
 (defun netease-cloud-music-seek-backward ()
   "Seek backward the current song."
@@ -722,8 +722,13 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
             (kill-buffer "*shell-output*")))
       (process-send-string netease-cloud-music-process
                            (nth 3 netease-cloud-music-player-command)))
-    (when netease-cloud-music-show-lyric
-      (setq netease-cloud-music-lyric netease-cloud-music-lyrics))))
+    (when netease-cloud-music-update-lyric-timer
+      (cancel-timer netease-cloud-music-update-lyric-timer))
+    (setq netease-cloud-music-update-lyric-timer
+                 (run-with-timer
+                  1.1 nil
+                  (lambda ()
+                    (netease-cloud-music-update-lyrics t))))))
 
 (defun netease-cloud-music-delete-song-from-playlist ()
   "Delete current song from playlist."
@@ -811,6 +816,29 @@ Mainly used to check the time."
         (when (= string1-prefix string2-prefix)
           (when (> string1-end string2-end)
             t))))))
+
+(defun netease-cloud-music-update-lyrics (&optional init)
+  "Force Update the lyrics.
+Optional argument means init the lyrics list."
+  (when netease-cloud-music-show-lyric
+    (when init
+      (setq netease-cloud-music-lyric netease-cloud-music-lyrics))
+    (with-current-buffer " *netease-cloud-music-play:process*"
+      (when (search-backward "[K[0mA" nil t)
+        (let ((current-song-time (buffer-substring-no-properties (+ 12 (point))
+                                                                 (+ 17 (point))))
+              (current-time (ignore-errors
+                              (substring (car netease-cloud-music-lyric) 1 6)))
+              current-lyric)
+          (while (not
+                  (netease-cloud-music--string> current-time current-song-time))
+            (setq current-time
+                  (ignore-errors
+                    (substring (car netease-cloud-music-lyric) 1 6)))
+            (setq current-lyric (car netease-cloud-music-lyric)
+                  netease-cloud-music-lyric (cdr netease-cloud-music-lyric)))
+          (setq netease-cloud-music-current-lyric
+                (netease-cloud-music--current-lyric current-lyric)))))))
 
 ;;; For old user
 (defun netease-cloud-music-insert-playlist (file-path)

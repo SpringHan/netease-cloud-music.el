@@ -232,6 +232,18 @@ NO-RESULT-LIMIT means do not limit the songs catch."
             (throw 'song-list index))
           (setq index (1+ index)))))))
 
+(defun netease-cloud-music--current-lyric (string)
+  "Get the lyric from STRING."
+  (ignore-errors
+    (match-string
+     (if (string-match "\\[\\(.*\\):\\(.*\\)\\.\\(.*\\)\\]\\(.*\\)" string)
+         4
+       (when (string-match
+              "\\[\\(.*\\):\\(.*\\)\\]\\(.*\\)"
+              string)
+         3))
+     string)))
+
 (defun netease-cloud-music--index (ele list)
   "Get the index of ELE in LIST. Use `equal' to check."
   (let ((index 0))
