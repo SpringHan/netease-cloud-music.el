@@ -362,8 +362,7 @@ Otherwise return nil."
   (netease-cloud-music-kill-process)
   (setq netease-cloud-music-process-status ""
         netease-cloud-music-repeat-mode "")
-  (setq netease-cloud-music-playlist-song-index 0
-        netease-cloud-music-search-page nil
+  (setq netease-cloud-music-search-page nil
         netease-cloud-music-lyric nil
         netease-cloud-music-lyrics nil
         netease-cloud-music-update-lyric-timer nil)
