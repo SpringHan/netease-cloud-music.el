@@ -238,6 +238,8 @@ pause-message seek-forward-message seek-backward-message"
         (setq song-list (netease-cloud-music--get-song-list song artist))
         (netease-cloud-music-switch-close)
         (add-to-list 'netease-cloud-music-playlist song-list)
+        (when (string= netease-cloud-music-repeat-mode "")
+          (setq netease-cloud-music-repeat-mode "song"))
         (netease-cloud-music-play
          (car-safe song-list)
          song artist "song")))))
@@ -329,6 +331,8 @@ pause-message seek-forward-message seek-backward-message"
   (let ((song (nth (netease-cloud-music--current-song)
                    netease-cloud-music-playlist)))
     (when song
+      (when (string= netease-cloud-music-repeat-mode "")
+        (setq netease-cloud-music-repeat-mode "song"))
       (netease-cloud-music-play
        (car song)
        (nth 1 song)
