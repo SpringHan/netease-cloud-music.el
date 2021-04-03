@@ -168,6 +168,9 @@ pause-message seek-forward-message seek-backward-message"
     (define-key map "<" 'netease-cloud-music-seek-backward)
     (define-key map "r" 'netease-cloud-music-change-repeat-mode)
     (define-key map "k" 'netease-cloud-music-clear-playlist)
+    (define-key map "R" 'netease-cloud-music-change-order)
+    (define-key map (kbd "<down>") 'netease-cloud-music-move-down)
+    (define-key map (kbd "<up>") 'netease-cloud-music-move-up)
     (define-key map "?" 'describe-mode)
     (define-key map "h" 'describe-mode)
     map)
@@ -845,6 +848,49 @@ Optional argument means init the lyrics list."
                   netease-cloud-music-lyric (cdr netease-cloud-music-lyric)))
           (setq netease-cloud-music-current-lyric
                 (netease-cloud-music--current-lyric current-lyric)))))))
+
+(defun netease-cloud-music-change-order (song num)
+  "Change the song's to NUM."
+  (interactive (let ((current-song (netease-cloud-music--current-song)))
+                 (list current-song
+                       (read-number (format "Enter the number for the order(current one is %S): "
+                                            (1+ current-song))))))
+  (if (null song)
+      (user-error "[Netease-Cloud-Music]: The song is not exists!")
+    (setq num (1- num))
+    (let ((original-song (nth num netease-cloud-music-playlist))
+          (song-info (nth song netease-cloud-music-playlist)))
+      (cond ((> num (1- (length netease-cloud-music-playlist)))
+             (setq netease-cloud-music-playlist
+                   (append (list song-info)
+                           (delete song-info netease-cloud-music-playlist))))
+            ((< num 0)
+             (setq netease-cloud-music-playlist
+                   (append (delete song-info netease-cloud-music-playlist)
+                           (list song-info))))
+            (t (setf (nth num netease-cloud-music-playlist) song-info
+                     (nth song netease-cloud-music-playlist) original-song)))
+      (netease-cloud-music-interface-init))))
+
+(defun netease-cloud-music-move-down ()
+  "Move the current song down."
+  (interactive)
+  (let ((current (netease-cloud-music--current-song))
+        (current-line (line-number-at-pos)))
+    (when current
+      (netease-cloud-music-change-order current (+ current 2))
+      (goto-char (point-min))
+      (forward-line current-line))))
+
+(defun netease-cloud-music-move-up ()
+  "Move the current song up."
+  (interactive)
+  (let ((current (netease-cloud-music--current-song))
+        (current-line (line-number-at-pos)))
+    (when current
+      (netease-cloud-music-change-order current current)
+      (goto-char (point-min))
+      (forward-line (- current-line 2)))))
 
 ;;; For old user
 (defun netease-cloud-music-insert-playlist (file-path)
