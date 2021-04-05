@@ -214,16 +214,23 @@ NO-RESULT-LIMIT means do not limit the songs catch."
         (setq index (1+ index))))
     result))
 
-(defun netease-cloud-music--current-song ()
+(defun netease-cloud-music--current-song (&optional song-info)
   "Get the current song at point."
-  (let ((song (substring (thing-at-point 'line) 0 -1))
+  (let ((song (cond ((stringp song-info)
+                     song-info)
+                    (song-info nil)
+                    (t (substring (thing-at-point 'line) 0 -1))))
         (index 0)
         name artist)
-    (ignore-errors
-      (progn
-        (string-match "\\(.*\\) - \\(.*\\)" song)
-        (setq name (match-string 1 song)
-              artist (match-string 2 song))))
+    (if (or (null song-info)
+            (stringp song-info))
+        (ignore-errors
+          (progn
+            (string-match "\\(.*\\) - \\(.*\\)" song)
+            (setq name (match-string 1 song)
+                  artist (match-string 2 song))))
+      (setq name (car song-info)
+            artist (nth 1 song-info)))
     (when (and name artist)
       (catch 'song-list
         (dolist (song-info netease-cloud-music-playlist)
