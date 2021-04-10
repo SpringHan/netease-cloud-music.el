@@ -131,6 +131,7 @@ AID is the artist-id.
 ANAME is the artist-name.
 
 LIMIT is the limit for the results, it's a number."
+  ;; TODO: Improve this function with `alist-get'
   (when (symbolp limit)
     (setq limit 1))
   (let (result song-json r-sid r-sname r-aid r-aname to-get-json)
@@ -270,6 +271,12 @@ Like `memq', but use `equal'."
         (when (equal ele item)
           (throw 'result index))
         (setq index (1+ index))))))
+
+(defun netease-cloud-music--append (ele)
+  "Append ELE to `netease-cloud-music-playlist'.
+ELE is a list."
+  (dolist (item ele)
+    (add-to-list 'netease-cloud-music-playlist item t 'equal)))
 
 (provide 'netease-cloud-music-functions)
 
