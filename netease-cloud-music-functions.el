@@ -91,7 +91,8 @@ LIMIT is the limit for the search result, it's a number."
   (let (result search-type)
     ;; result type
     (pcase type
-      ('song (setq search-type "1")))
+      ('song (setq search-type "1"))
+      ('playlist (setq search-type "1000")))
     (when (numberp limit)
       (setq limit (number-to-string limit)))
     (request
@@ -119,54 +120,22 @@ Otherwise return nil."
     (when (= result 121)
       t)))
 
-(defun netease-cloud-music-read-json (data &optional sid sname aid aname limit)
-  "Read the Netease Music json DATA and return the result.
-
-SID is the song-id.
-
-SNAME is the song-name.
-
-AID is the artist-id.
-
-ANAME is the artist-name.
-
-LIMIT is the limit for the results, it's a number."
-  ;; TODO: Improve this function with `alist-get'
-  (when (symbolp limit)
-    (setq limit 1))
-  (let (result song-json r-sid r-sname r-aid r-aname to-get-json)
-    (if (eq (car (cadar data)) 'queryCorrected)
-        (if (> limit 1)
-            (setq song-json (cdar (cddar data)))
-          (setq song-json (aref (cdar (cddar data)) 0)))
-      (if (> limit 1)
-          (setq song-json (cdr (cadar data)))
-        (setq song-json (aref (cdr (cadar data)) 0))))
-    (dotimes (song-time limit)
-      ;; Set the json which is contented the songs info
-      (if (= limit 1)
-          (setq to-get-json song-json)
-        (setq to-get-json (aref song-json song-time)))
-
-      (when sid
-        (setq r-sid (cdar to-get-json)))
-      (when sname
-        (setq r-sname
-              (cdadr to-get-json)))
-      (when aid
-        (setq r-aid
-              (cdar (aref
-                     (cdar (cddr to-get-json)) 0))))
-      (when aname
-        (setq r-aname
-              (cdadr (aref
-                      (cdar (cddr to-get-json)) 0))))
-      (if (not (null result))
-          (setf result (append result (list (list r-sid r-sname r-aid r-aname))))
-        (if (= limit 1)
-            (setf result (list r-sid r-sname r-aid r-aname))
-          (setf result (list (list r-sid r-sname r-aid r-aname))))))
-    result))
+(defun netease-cloud-music-get-song (data)
+  "Read the Netease Music json DATA and return the result."
+  (let (song artist result)
+    (if (/= 200 (alist-get 'code data))
+        (user-error "[Netease-Cloud-Music]: The song you search is error!")
+      (setq data (alist-get 'songs (alist-get 'result data)))
+      (dotimes (n (length data))
+        (setq song (aref data n)
+              artist (aref (alist-get 'artists song) 0))
+        (add-to-list 'result
+                     (list (alist-get 'id song)
+                           (alist-get 'name song)
+                           (alist-get 'id artist)
+                           (alist-get 'name artist))
+                     t))
+      result)))
 
 (defun netease-cloud-music--songs-by-page (page-string)
   "Get the songs list by the page limit."
@@ -270,7 +239,8 @@ Like `memq', but use `equal'."
       (dolist (item list)
         (when (equal ele item)
           (throw 'result index))
-        (setq index (1+ index))))))
+        (setq index (1+ index)))
+      nil)))
 
 (defun netease-cloud-music--append (ele)
   "Append ELE to `netease-cloud-music-playlist'.

@@ -292,10 +292,9 @@ pause-message seek-forward-message seek-backward-message"
          (search-results
           (netease-cloud-music--catch-songs
            limit
-           (netease-cloud-music-read-json
+           (netease-cloud-music-get-song
             (netease-cloud-music-request-from-api
-             search-content nil limit)
-            t t t t limit))))
+             search-content nil limit)))))
     (netease-cloud-music-search-song--open-switch
      search-results)
     (setq netease-cloud-music-search-page page
@@ -417,20 +416,23 @@ pause-message seek-forward-message seek-backward-message"
 If it's live, return t.
 Otherwise return nil."
   (if (and netease-cloud-music-process
-           (not (eq (process-live-p netease-cloud-music-process) 0)))
+           (process-live-p netease-cloud-music-process))
       t
     nil))
 
 (defun netease-cloud-music-kill-process ()
   "Kill the Netease Music process."
   (when (netease-cloud-music-process-live-p)
-    (delete-process netease-cloud-music-process)
+    (set-process-sentinel netease-cloud-music-process nil)
+    (if (get-buffer " *netease-cloud-music-play:process*")
+        (progn
+          (delete-process " *netease-cloud-music-play:process*")
+          (kill-buffer " *netease-cloud-music-play:process*"))
+      (delete-process netease-cloud-music-process))
     (when netease-cloud-music-lyric-timer
       (netease-cloud-music-cancel-timer netease-cloud-music-lyric-timer))
     (setq netease-cloud-music-process nil
-          netease-cloud-music-current-song nil)
-    (when (get-buffer " *netease-cloud-music-play:process*")
-      (kill-buffer " *netease-cloud-music-play:process*"))))
+          netease-cloud-music-current-song nil)))
 
 (defun netease-cloud-music-close ()
   "Close Netease Music and kill the process."
@@ -459,10 +461,9 @@ SONG-NAME is a string."
   (let* ((artist-name (read-string "Enter the artist name(can be null): "))
          (search-content (format "%s %s" song-name artist-name))
          (search-result
-          (netease-cloud-music-read-json
+          (netease-cloud-music-get-song
            (netease-cloud-music-request-from-api search-content nil
-                                                 netease-cloud-music-search-limit)
-           t t t t netease-cloud-music-search-limit)))
+                                                 netease-cloud-music-search-limit))))
     (setq netease-cloud-music-search-alist
           (cons search-content search-result)
           netease-cloud-music-search-page 1)
@@ -650,7 +651,7 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
                              (setq netease-cloud-music-current-lyric
                                    (netease-cloud-music--current-lyric current-lyric))
                              (setq netease-cloud-music-lyric (cdr netease-cloud-music-lyric))))))
-                   (netease-cloud-cancel-timer netease-cloud-music-lyric-timer))))))
+                   (netease-cloud-music-cancel-timer netease-cloud-music-lyric-timer))))))
     (setq netease-cloud-music-process-status "playing")
     (setq netease-cloud-music-current-song
           `(,song-name ,artist-name ,song-id))
@@ -679,7 +680,7 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
 
 (defun netease-cloud-music-process-sentinel (process event)
   "The sentinel of Netease Music process."
-  (when (string-match "\\(finished\\|Exiting\\)" event)
+  (when (string-match "\\(finished\\|Exiting\\|killed\\|exited\\)" event)
     (cond ((string= netease-cloud-music-repeat-mode "off")
            (netease-cloud-music-kill-current-song))
           ((string= netease-cloud-music-repeat-mode "song")
@@ -794,6 +795,7 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
       (setq netease-cloud-music-playlist
             (delete (nth song netease-cloud-music-playlist)
                     netease-cloud-music-playlist))
+      (netease-cloud-music-save-playlist)
       (netease-cloud-music-interface-init)
       (goto-char (point-min))
       (forward-line (1- current-line)))))
@@ -984,10 +986,14 @@ Optional argument means init the lyrics list."
                     (buffer-substring-no-properties (point-min) (point-max)))))
     (setq netease-cloud-music-playlist (car (read-from-string playlist)))))
 
-(defun netease-cloud-music-fetch-playlist (info) ; TODO: Add the keyword search
+(defun netease-cloud-music-search-playlist (name) ; TODO: Add the keyword search
   "Fetch the playlist by INFO.
 INFO can be the id of playlist or its name."
-  (interactive "MEnter the info of the playlist: "))
+  (interactive "MEnter the name of the playlist: ")
+  (if (string= name "")
+      (user-error "[Netease-Cloud-Music]: The name of playlist can not be null!")
+    (let ((playlists (netease-cloud-music-request-from-api
+                      name 'playlist netease-cloud-music-search-limit))))))
 
 (defun netease-cloud-music-get-playlist-by-uid (uid)
   "Fetch playlist by UID."
