@@ -137,6 +137,20 @@ Otherwise return nil."
                      t))
       result)))
 
+(defun netease-cloud-music-get-playlists (data)
+  "Read the playlist json DATA searched from API."
+  (let (playlist result)
+    (if (/= 200 (alist-get 'code data))
+        (user-error "[Netease-Cloud-Music]: The playlist you search is error!")
+      (setq data (alist-get 'playlists (alist-get 'result data)))
+      (dotimes (n (length data))
+        (setq playlist (aref data n))
+        (add-to-list 'result
+                     (cons (alist-get 'name playlist)
+                           (alist-get 'id playlist))
+                     t))
+      result)))
+
 (defun netease-cloud-music--songs-by-page (page-string)
   "Get the songs list by the page limit."
   (let (start end search-result)
@@ -166,21 +180,21 @@ Otherwise return nil."
                    (string= artist (nth 3 song-list)))
           (throw 'result song-list))))))
 
-(defun netease-cloud-music--catch-songs (all song-list &optional index-limit no-result-limit)
-  "Catch the song list by ALL length in SONG-LIST.
-INDEX-LIMIT is the start of the song-list.
-NO-RESULT-LIMIT means do not limit the songs catch."
+(defun netease-cloud-music--catch (all list &optional index-limit no-result-limit)
+  "Catch the song list or playlists by ALL length in LIST.
+INDEX-LIMIT is the start of the song-list or playlists.
+NO-RESULT-LIMIT means do not limit the catch."
   (let ((index (if index-limit
                    index-limit
                  (- all netease-cloud-music-search-limit)))
         result)
     (if no-result-limit
         (progn
-          (setq result song-list)
+          (setq result list)
           (dotimes (_ index)
             (pop result)))
       (dotimes (_ netease-cloud-music-search-limit)
-        (setq result (append result (list (nth index song-list))))
+        (setq result (append result (list (nth index list))))
         (setq index (1+ index))))
     result))
 
