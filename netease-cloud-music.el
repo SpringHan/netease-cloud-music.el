@@ -222,6 +222,7 @@ pause-message seek-forward-message seek-backward-message"
   :type 'keymap
   :group 'netease-cloud-music)
 
+;;;###autoload
 (define-derived-mode netease-cloud-music-mode nil "Netease-Cloud-Music"
   "The mode of Netease Music mode."
   :group 'netease-cloud-music
@@ -357,6 +358,7 @@ pause-message seek-forward-message seek-backward-message"
   (netease-cloud-music-switch-close)
   (netease-cloud-music-interface-init))
 
+;;;###autoload
 (define-derived-mode netease-cloud-music-write-mode text-mode "Netease-Cloud-Music:Write"
   "The write mode for `netease-cloud-music'."
   :group 'netease-cloud-music
@@ -635,8 +637,11 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
     (if netease-cloud-music-show-lyric
         (progn
           (setq netease-cloud-music-lyric (netease-cloud-music-get-lyric song-id))
+          (with-current-buffer " *netease-cloud-music-play:process*"
+            (erase-buffer))
           (with-current-buffer netease-cloud-music-buffer-name
-            (netease-cloud-music-add-header-lyrics)))
+            (netease-cloud-music-add-header-lyrics))
+          (setq netease-cloud-music-current-lyric nil))
       (setq netease-cloud-music-lyric nil))
     (if (and netease-cloud-music-lyric netease-cloud-music-show-lyric)
         (setq netease-cloud-music-lyric (split-string netease-cloud-music-lyric "\n")
@@ -873,7 +878,8 @@ ALL means eval it in all of the `netease-cloud-music-showed-lyric-buffer'."
           (propertize (nth 1 netease-cloud-music-current-song)
                       'face 'font-lock-function-name-face)
           ": "
-          netease-cloud-music-current-lyric))
+          (when (stringp netease-cloud-music-current-lyric)
+            netease-cloud-music-current-lyric)))
 
 (defun netease-cloud-music--string> (string1 string2)
   "Check if STRING1 is bigger than STRING2.
