@@ -137,6 +137,9 @@ pause-message seek-forward-message seek-backward-message"
 (defvar netease-cloud-music-current-lyric nil
   "Current lyric.")
 
+(defvar netease-cloud-music-lyric-song nil
+  "The song of current lyrics.")
+
 (defconst netease-cloud-music-search-api
   "http://music.163.com/api/search/get/"
   "The search api of Netease Music.")
@@ -455,7 +458,8 @@ Otherwise return nil."
   (setq netease-cloud-music-search-page nil
         netease-cloud-music-lyric nil
         netease-cloud-music-lyrics nil
-        netease-cloud-music-update-lyric-timer nil)
+        netease-cloud-music-update-lyric-timer nil
+        netease-cloud-music-lyric-song nil)
   (netease-cloud-music-cancel-timer nil t)
   (netease-cloud-music-save-playlist)
   (kill-buffer netease-cloud-music-buffer-name))
@@ -638,12 +642,15 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
     (if (and netease-cloud-music-lyric netease-cloud-music-show-lyric)
         (setq netease-cloud-music-lyric (split-string netease-cloud-music-lyric "\n")
               netease-cloud-music-lyrics netease-cloud-music-lyric
+              netease-cloud-music-lyric-song song-id
               netease-cloud-music-lyric-timer
               (run-with-timer
                0.5 1
                (lambda ()
                  (if (and (get-buffer " *netease-cloud-music-play:process*")
-                          (length netease-cloud-music-lyric))
+                          (length netease-cloud-music-lyric)
+                          (= netease-cloud-music-lyric-song
+                             (nth 2 netease-cloud-music-current-song)))
                      (with-current-buffer " *netease-cloud-music-play:process*"
                        (goto-char (point-max))
                        (when (and (search-backward "[K[0mA" nil t)
@@ -796,10 +803,10 @@ RANDOM means to play songs randomly."
     (when netease-cloud-music-update-lyric-timer
       (cancel-timer netease-cloud-music-update-lyric-timer))
     (setq netease-cloud-music-update-lyric-timer
-                 (run-with-timer
-                  1.1 nil
-                  (lambda ()
-                    (netease-cloud-music-update-lyrics t))))))
+          (run-with-timer
+           1.1 nil
+           (lambda ()
+             (netease-cloud-music-update-lyrics t))))))
 
 (defun netease-cloud-music-delete-song-from-playlist ()
   "Delete current song from playlist."
