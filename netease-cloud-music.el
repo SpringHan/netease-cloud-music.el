@@ -767,8 +767,7 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
 (defun netease-cloud-music-kill-current-song ()
   "Kill the current song."
   (interactive)
-  (if (not (netease-cloud-music-process-live-p))
-      (user-error "[Netease-Cloud-Music]: There's no song playing.")
+  (when (netease-cloud-music-process-live-p)
     (netease-cloud-music-kill-process)
     (setq netease-cloud-music-process-status "")
     (netease-cloud-music-interface-init)))
