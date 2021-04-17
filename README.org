@@ -1,26 +1,24 @@
-* Netease Cloud Music
-  Netease Cloud Music is a plugin that can let you listen music in Emacs.
-
-  [[./README_cn.org][中文文档]]
+* 网易云音乐
+  网易云音乐是一个可以让你在 Emacs 里听音乐的插件
 
   [[./demo.png]]
-** Dependences
-   - ~mpv~ or other players can play online songs, seek forward, seek backward and pause songs
+** 依赖
+   - ~mpv~ 或者其他能够播放在线音乐、快进快退、暂停歌曲的播放器
 
-     This is the player for playing the songs.
-     If you are an Arch user, you can install it by: ~sudo pacman -S mpv~
+     这是一个播放歌曲的播放器
+     如果你是一名 Arch 用户, 你可以用这条命令安装它: ~sudo pacman -S mplayer~
    - ~request~
 
-     This is a emacs package, you can install it by: ~M-x package-install RET request RET~
+     这是一个 Emacs 包裹, 你能用 ~M-x package-install RET request RET~ 安装它
    - ~socat~
-
-     This is a program about process, if you use ~mpv~ as your player, you should install it.
-** Installation
-   1. Clone it.
+     
+     这是一个与进程有关的程序，如果你使用 ~mpv~ 作为播放器，你就必须安装这个软件。
+** 安装
+   1. 克隆此仓库
       #+begin_src shell
         git clone https://github.com/SpringHan/netease-cloud-music.el.git ~/.emacs.d/ --depth=1
       #+end_src
-   2. Require it:
+   2. 添加至 ~init.el~:
       #+begin_src emacs-lisp
         ;; Add it to load path
         (add-to-list 'load-path "~/.emacs.d/netease-cloud-music.el")
@@ -28,53 +26,78 @@
         ;; Require it
         (require 'netease-cloud-music)
       #+end_src
-** Keybindings
-   | Key | Function                                                 |
-   |-----+----------------------------------------------------------|
-   | a   | Add the current song into playlist                       |
-   | r   | Change the repeat mode                                   |
-   | d   | Delete the song at point from playlist                   |
-   | f   | Search song by its name                                  |
-   | P   | Play all the songs in playlist                           |
-   | p   | Play the previous song in playlist or goto previous line |
-   | n   | Play the next song in playlist or goto next line         |
-   | x   | Kill current playing song                                |
-   | >   | Seek forward                                             |
-   | <   | Seek backward                                            |
-   | ?   | Help                                                     |
-   | h   | Help                                                     |
-   | RET | Play the playlist song at point                          |
-   | SPC | Pause or continue the current song                       |
-   | q   | Quit Netease Cloud Music                                 |
-** Function
+** 快捷键
+   | 快捷键 | 功能                       |
+   |--------+----------------------------|
+   | g      | 刷新页面                   |
+   | s      | 保存当前歌单至本地缓存文件 |
+   | u      | 通过用户ID获取其歌单       |
+   | d      | 删除当前光标下歌曲         |
+   | k      | 清除本地歌单（不会保存）   |
+   | w      | 进入编辑模式               |
+   | /      | 通过搜索的方式播放本地歌单 |
+   | <up>   | 将当前歌曲向上移动         |
+   | <down> | 将当前歌曲向下移动         |
+   | a      | 将当前歌曲放入播放列表中   |
+   | r      | 更改repeat mode            |
+   | d      | 将光标下的歌曲从列表删除   |
+   | f      | 搜索当前歌名               |
+   | F      | 搜索歌单                   |
+   | P      | 播放播放列表中的所有歌曲   |
+   | p      | 上一首或移动光标到上一行   |
+   | n      | 下一首或移动光标到下一行   |
+   | x      | 停止当前歌曲               |
+   | >      | 快进                       |
+   | <      | 快退                       |
+   | ?      | 帮助文档                   |
+   | h      | 帮助文档                   |
+   | RET    | 在光标处播放播放列表       |
+   | SPC    | 暂停或继续当前歌曲         |
+   | q      | 退出网易云音乐             |
+** 选择模式快捷键
+   | 快捷键 | 功能                                                                                                |
+   |--------+-----------------------------------------------------------------------------------------------------|
+   | q      | 关闭选择窗口                                                                                        |
+   | n      | 下一行                                                                                              |
+   | p      | 上一行 (song 和 playlist 通用) 或 将歌单歌曲替换为搜索结果 (for song)                               |
+   | f      | 下一页结果                                                                                          |
+   | b      | 上一页结果                                                                                          |
+   | RET    | 将歌曲加入到本地歌单 (for song) 或 将歌单中歌曲加入到本地歌单 (for playlist)                        |
+   | P      | 将本地歌单替换为搜索到的一定页数的歌曲 (for song)                                                   |
+   | a      | 将当前页搜索到的歌曲加入到本地歌单 (for song) 或将本页所有歌单搜索结果加入到本地歌单 (for playlist) |
+   | A      | 将搜索到的一定页数的歌曲加入到本地歌单 (for song)                                                   |
+** 编辑模式快捷键
+   | 快捷键  | 功能     |
+   | C-c C-c | 保存更改 |
+   | C-c C-k | 取消更改 |
+** 函数
    - ~netease-cloud-music~
 
-     You can use this function to open the Netease Cloud Music buffer and enter the major mode.
-     If now you have opened the buffer, Emacs will switch it when you use this function.
+     可通过此函数打开网易云音乐buffer。如果已经打开，则跳转到网易云音乐buffer。
 
    - ~netease-cloud-music-change-repeat-mode~
 
-     You can use this function to change the repeat mode.
-** Variables
+     可通过此函数开启关闭循环模式。
+** 变量
    - ~netease-cloud-music-player-command~ (list)
 
-     The value includes player command, continue playing process message, pause playing process message, seek forward process message and seek backward process message.
+     这个函数的值包括：播放器的命令、继续播放的进程信息、停止播放的进程信息、快进进程信息、快退进程信息。
 
-     Default value: ~'("mpv" "pause\n" "seek 5" "seek -5")~
+     默认值： ~'("mpv" "pause\n" "seek 5" "seek -5")~
      
-     More available commands [[https://github.com/SpringHan/netease-cloud-music.el/issues/3][See Here]].
+     更多可用的命令[[https://github.com/SpringHan/netease-cloud-music.el/issues/3][见这里]].
 
-     If you use ~mplayer~ as your music player, you need't to spend time on this variable.You just need to enjoy listening.
+     如果你使用 ~mplayer~ 作为你的音乐播放器，那么你不需要花时间配置这个变量。
 
-     Tips: You can define the seek action's second in seek process message like this:
+     提示：你可以在快进快退的进程信息里定义它的秒数，下面是个例子：
 
      #+begin_src emacs-lisp
        (setq netease-cloud-music-player-command '("mpv" "pause\n" "seek 5" "seek -5"))
      #+end_src
 
-   - ~netease-cloud-music-buffer-name~ (string)
+   - ~netease-cloud-music-buffer-name~ (String)
 
-     You can set the Netease Cloud Music buffer by changing this variable. Default: ~"*Netease-Cloud-Music*"~
+     你可以通过改变这个变量的值从而设置网易云音乐的buffer。默认值：~"*Netease-Cloud-Music*"~
 
-** License
+** 许可
    GPL-3.0
