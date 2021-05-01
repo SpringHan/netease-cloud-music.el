@@ -643,6 +643,10 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
             (netease-cloud-music-add-header-lyrics))
           (setq netease-cloud-music-current-lyric nil))
       (setq netease-cloud-music-lyric nil))
+    (setq netease-cloud-music-process-status "playing")
+    (setq netease-cloud-music-current-song
+          `(,song-name ,artist-name ,song-id))
+    (netease-cloud-music-adjust-song-index)
     (if (and netease-cloud-music-lyric netease-cloud-music-show-lyric)
         (setq netease-cloud-music-lyric (split-string netease-cloud-music-lyric "\n")
               netease-cloud-music-lyrics netease-cloud-music-lyric
@@ -675,10 +679,6 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
                                    (netease-cloud-music--current-lyric current-lyric))
                              (setq netease-cloud-music-lyric (cdr netease-cloud-music-lyric))))))
                    (netease-cloud-music-cancel-timer))))))
-    (setq netease-cloud-music-process-status "playing")
-    (setq netease-cloud-music-current-song
-          `(,song-name ,artist-name ,song-id))
-    (netease-cloud-music-adjust-song-index)
     (netease-cloud-music-interface-init)))
 
 (defun netease-cloud-music-playlist-play ()
