@@ -168,6 +168,7 @@ pause-message seek-forward-message seek-backward-message"
     (define-key map "P" 'netease-cloud-music-playlist-play)
     (define-key map "p" 'netease-cloud-music-play-previous-song)
     (define-key map "n" 'netease-cloud-music-play-next-song)
+    (define-key map "N" 'netease-cloud-music-random-play)
     (define-key map "x" 'netease-cloud-music-kill-current-song)
     (define-key map ">" 'netease-cloud-music-seek-forward)
     (define-key map "<" 'netease-cloud-music-seek-backward)
@@ -1121,6 +1122,7 @@ INFO can be the id of playlist or its name."
 
 (defun netease-cloud-music-random-play ()
   "Return the random number for the playlist as an index."
+  (interactive)
   (setq netease-cloud-music-playlist-song-index
         (random (1- (length netease-cloud-music-playlist))))
   (netease-cloud-music-playlist-play))
