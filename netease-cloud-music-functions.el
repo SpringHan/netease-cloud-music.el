@@ -162,14 +162,13 @@ Otherwise return nil."
       (setq start (* netease-cloud-music-search-limit (1- (string-to-number start)))
             end (* netease-cloud-music-search-limit (string-to-number end)))
       (setq search-result
-            (netease-cloud-music-read-json
+            (netease-cloud-music-get-song
              (netease-cloud-music-request-from-api
               (car netease-cloud-music-search-alist)
-              nil end)
-             t t t t end))
+              nil end)))
       (when search-result
         (setq search-result
-              (netease-cloud-music--catch-songs nil search-result start t))))))
+              (netease-cloud-music--catch nil search-result start t))))))
 
 (defun netease-cloud-music--get-song-list (name artist)
   "Get the song-info list by its NAME and ARTIST."
