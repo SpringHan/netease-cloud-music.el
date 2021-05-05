@@ -165,6 +165,7 @@ pause-message seek-forward-message seek-backward-message"
     (define-key map "f" 'netease-cloud-music-search-song)
     (define-key map "F" 'netease-cloud-music-search-playlist)
     (define-key map "d" 'netease-cloud-music-delete-song-from-playlist)
+    (define-key map "D" 'netease-cloud-music-delete-playing-song)
     (define-key map "P" 'netease-cloud-music-playlist-play)
     (define-key map "p" 'netease-cloud-music-play-previous-song)
     (define-key map "n" 'netease-cloud-music-play-next-song)
@@ -1126,5 +1127,19 @@ INFO can be the id of playlist or its name."
   (setq netease-cloud-music-playlist-song-index
         (random (1- (length netease-cloud-music-playlist))))
   (netease-cloud-music-playlist-play))
+
+(defun netease-cloud-music-delete-playing-song ()
+  "Delete playing song."
+  (interactive)
+  (setq netease-cloud-music-playlist
+        (delete (nth
+                 (netease-cloud-music--current-song
+                  (format "%s - %s"
+                          (car netease-cloud-music-current-song)
+                          (nth 1 netease-cloud-music-current-song)))
+                 netease-cloud-music-playlist)
+                netease-cloud-music-playlist))
+  (netease-cloud-music-save-playlist)
+  (netease-cloud-music-process-sentinel nil "killed"))
 
 (provide 'netease-cloud-music)
