@@ -2,7 +2,7 @@
 
 ;; Author: SpringHan
 ;; Maintainer: SpringHan
-;; Version: 1.5
+;; Version: 2.0
 ;; Package-Requires: ((cl-lib "1.0") (request) (json "1.4"))
 ;; Homepage: https://github.com/SpringHan/netease-cloud-music.git
 ;; Keywords: Player
@@ -59,6 +59,21 @@
   "The process of Netease Music."
   :group 'netease-cloud-music)
 
+(defcustom netease-cloud-music-api-process nil
+  "The third-party api process."
+  :type 'process
+  :group 'netease-cloud-music)
+
+(defcustom netease-cloud-music-api-buffer "*Netease-API*"
+  "The third-party api process buffer."
+  :type 'buffer
+  :group 'netease-cloud-music)
+
+(defcustom netease-cloud-music-api-port "3000"
+  "The port for the API process."
+  :type 'string
+  :group 'netease-cloud-music)
+
 (defcustom netease-cloud-music-current-song nil
   "The current playing song."
   :type 'list
@@ -69,8 +84,14 @@
   :type 'string
   :group 'netease-cloud-music)
 
+(defcustom netease-cloud-music-cache-directory
+  (locate-user-emacs-file "netease-cloud-music")
+  "The cache directory."
+  :type 'string
+  :group 'netease-cloud-music)
+
 (defcustom netease-cloud-music-playlist-file
-  (expand-file-name (locate-user-emacs-file "ncm-playlist"))
+  (expand-file-name "ncm-playlist" netease-cloud-music-cache-directory)
   "The cache directory of Netease Music."
   :type 'string
   :group 'netease-cloud-music)
@@ -148,11 +169,33 @@ pause-message seek-forward-message seek-backward-message"
   "http://music.163.com/song/media/outer/url?id="
   "The song link of Netease Music.")
 
+(defconst netease-cloud-music-api-dir
+  (expand-file-name "api/" netease-cloud-music-cache-directory)
+  "The directory for the third-party api.")
+
+(defconst netease-cloud-music-user-loginfo-file
+  (expand-file-name "log-info" netease-cloud-music-cache-directory)
+  "The login info file for the user.")
+
 (defvar netease-cloud-music-repeat-mode ""
   "The repeat mode for Netease Cloud Music.")
 
 (defvar netease-cloud-music-search-limit 10
   "The search limit for Netease Cloud Music.")
+
+(defvar netease-cloud-music-phone nil
+  "Phone number.")
+
+(defvar netease-cloud-music-username nil
+  "Username.")
+
+(defvar netease-cloud-music-user-password nil
+  "Password")
+
+(defvar netease-cloud-music-user-id nil
+  "User ID.")
+
+(defalias 'na-defun 'netease-api-defun)
 
 (defvar netease-cloud-music-mode-map
   (let ((map (make-sparse-keymap)))
@@ -177,6 +220,7 @@ pause-message seek-forward-message seek-backward-message"
     (define-key map "k" 'netease-cloud-music-clear-playlist)
     (define-key map "R" 'netease-cloud-music-change-order)
     (define-key map "w" 'netease-cloud-music-write-mode)
+    (define-key map "l" 'netease-cloud-music-login)
     (define-key map "/" 'netease-cloud-music-ask-play)
     (define-key map (kbd "<down>") 'netease-cloud-music-move-down)
     (define-key map (kbd "<up>") 'netease-cloud-music-move-up)
@@ -415,7 +459,31 @@ pause-message seek-forward-message seek-backward-message"
       (switch-to-buffer netease-cloud-music-buffer-name))
     (netease-cloud-music-mode)
     (netease-cloud-music-get-playlist)
-    (netease-cloud-music-interface-init)))
+    (netease-cloud-music-interface-init)
+
+    (unless (file-exists-p netease-cloud-music-cache-directory)
+      (make-directory netease-cloud-music-cache-directory))
+    (when (and (netease-cloud-music--api-downloaded)
+               (not (netease-cloud-music-api-process-live-p)))
+      (netease-cloud-music-start-api)   ;Start third-party API
+
+      (when (file-exists-p netease-cloud-music-user-loginfo-file)
+        (let ((loginfo (netease-cloud-music-get-loginfo)))
+          (when loginfo
+            (setq netease-cloud-music-phone (car loginfo)
+                  netease-cloud-music-user-password (cdr loginfo))
+            (run-with-timer 1 nil 'netease-cloud-music--get-user-info)))))))
+
+(defun netease-cloud-music-download-api ()
+  "Download the third-party API."
+  (interactive)
+  (if (netease-cloud-music--api-downloaded)
+      (user-error "[Netease-Cloud-Music]: The third-party API has been downloaded!")
+    (async-shell-command
+     (format "git clone https://github.com/Binaryify/NeteaseCloudMusicApi.git %s --depth=1 && cd %s && npm install"
+             netease-cloud-music-api-dir
+             netease-cloud-music-api-dir)
+     (get-buffer-create "*Netease-Cloud-Music-Api-Preperation*"))))
 
 (defun netease-cloud-music-play-song-at-point ()
   "Play the song at point."
@@ -465,6 +533,7 @@ Otherwise return nil."
         netease-cloud-music-lyric-song nil)
   (netease-cloud-music-cancel-timer t)
   (netease-cloud-music-save-playlist)
+  (netease-cloud-music-stop-api t)
   (kill-buffer netease-cloud-music-buffer-name))
 
 (defmacro netease-cloud-music-expand-form (&rest form)
@@ -544,9 +613,13 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
       (insert (propertize
                "Netease Cloud Music - 网易云音乐\n"
                'face '(:height 1.1 :foreground "Red3")))
+      (when netease-cloud-music-username ;Show user name
+        (insert "你好，"
+                (propertize netease-cloud-music-username
+                            'face '(:inherit font-lock-constant-face :weight bold)) "\n"))
       ;; Show the repeat mode status
       (insert (concat
-               (propertize "\nRepeat: "
+               (propertize "Repeat: "
                            'face '(:foreground "DeepSkyBlue"))
                (propertize (concat (upcase netease-cloud-music-repeat-mode) "\n")
                            'face '(:foreground "LightPink" :weight bold))))
@@ -608,9 +681,8 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
     (format "http://music.163.com/api/song/lyric?id=%s&lv=1&kv=1&tv=-1" song-id)
     :type "GET"
     :parser 'json-read
-    :success (cl-function
-              (lambda (&key data &allow-other-keys)
-                (setq result data)))
+    :success (netease-cloud-music-expand-form
+              (setq result data))
     :sync t)
   (let ((value (loop for i in result
                      if (eq (car i) 'lrc)
@@ -628,8 +700,10 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
           (start-process "netease-cloud-music-play:process"
                          " *netease-cloud-music-play:process*"
                          (car netease-cloud-music-player-command)
-                         (concat netease-cloud-music-song-link
-                                 (number-to-string song-id))
+                         (if netease-cloud-music-user-id
+                             (netease-cloud-music--song-url-by-user song-id)
+                           (concat netease-cloud-music-song-link
+                                   (number-to-string song-id)))
                          (if (string= (car netease-cloud-music-player-command)
                                       "mpv")
                              "--input-ipc-server=/tmp/mpvserver"
@@ -1141,5 +1215,86 @@ INFO can be the id of playlist or its name."
                 netease-cloud-music-playlist))
   (netease-cloud-music-save-playlist)
   (netease-cloud-music-process-sentinel nil "killed"))
+
+(na-defun netease-cloud-music-start-api ()
+  "Start third-party API."
+  (if (netease-cloud-music-api-process-live-p)
+      (user-error "[Netease-Cloud-Music]: API process is running.")
+    (setq netease-cloud-music-api-process
+          (start-process "netease-api"
+                         netease-cloud-music-api-buffer
+                         "node"
+                         (expand-file-name "app.js" netease-cloud-music-api-dir))))
+  (message "[Netease-Cloud-Music]: API process started."))
+
+(na-defun netease-cloud-music-stop-api (&optional no-error)
+  "Stop third-party api.
+NO-ERROR means to close error signal."
+  (interactive)
+  (if (not (netease-cloud-music-api-process-live-p))
+      (unless no-error
+        (user-error "[Netease-Cloud-Music]: API process is not exists."))
+    (if (not (get-buffer netease-cloud-music-api-buffer))
+        (delete-process netease-cloud-music-api-process)
+      (delete-process netease-cloud-music-api-buffer)
+      (kill-buffer netease-cloud-music-api-buffer))
+    (setq netease-cloud-music-api-process nil)
+    (message "[Netease-Cloud-Music]: API process stoped.")))
+
+(na-defun netease-cloud-music-restart-api ()
+  "Restart the third-party API."
+  (interactive)
+  (netease-cloud-music-stop-api)
+  (netease-cloud-music-start-api))
+
+(na-defun netease-cloud-music-login (phone password)
+  "Login with PHONE number and PASSWORD."
+  (interactive (list (read-string "Phone number(Countrycode[Space]number): " "+86 ")
+                     (md5 (read-passwd "Password: "))))
+  (if (not (netease-cloud-music-api-process-live-p))
+      (user-error "[Netease-Cloud-Music]: API process is null!")
+    (let ((countrycode (prog2 (string-match "\\(.*\\) \\(.*\\)" phone)
+                           (substring (match-string 1 phone) 1)
+                         (setq phone (match-string 2 phone))))
+          login-result)
+      (request (format "http://localhost:%s/login/cellphone?phone=%s&md5_password=%s&countrycode=%s"
+                       netease-cloud-music-api-port phone password countrycode)
+        :parser 'json-read
+        :success (netease-cloud-music-expand-form
+                  (setq login-result data))
+        :sync t)
+      (if (/= 200 (alist-get 'code login-result))
+          (user-error "[Netease-Cloud-Music]: Phone number or password is error!")
+        (setq netease-cloud-music-user-id (alist-get 'id (alist-get 'account login-result))
+              netease-cloud-music-username (alist-get 'nickname (alist-get 'profile login-result))
+              netease-cloud-music-user-password password
+              netease-cloud-music-phone (cons countrycode phone))
+        (netease-cloud-music-save-loginfo
+         (cons netease-cloud-music-phone
+               netease-cloud-music-user-password))
+        (message "[Netease-Cloud-Music]: Login successfully!")
+        (netease-cloud-music-interface-init)))))
+
+(defun netease-cloud-music--song-url-by-user (id)
+  "Get the song's url by user.
+ID is the song's id."
+  (let ((song-info (netease-api-request
+                    (format "http://localhost:%s/song/url?id=%d"
+                            netease-cloud-music-api-port id))))
+    (if (/= 200 (alist-get 'code song-info))
+        (user-error "[Netease-Cloud-Music]: The song whose id is %d cannot found!" id)
+      (alist-get 'url (aref (alist-get 'data song-info) 0)))))
+
+(defun netease-cloud-music--get-user-info ()
+  "Get user's info."
+  (let ((info (cdr (car (netease-api-request
+                         (format "http://localhost:%s/login/status"
+                                 netease-cloud-music-api-port))))))
+    (if (/= 200 (alist-get 'code info))
+        (user-error "[Netease-Cloud-Music]: Phone number or password is error!")
+      (setq netease-cloud-music-username (alist-get 'nickname (alist-get 'profile info))
+            netease-cloud-music-user-id (alist-get 'id (alist-get 'account info)))
+      (message "[Netease-Cloud-Music]: Login successfully!")
+      (netease-cloud-music-interface-init))))
 
 (provide 'netease-cloud-music)

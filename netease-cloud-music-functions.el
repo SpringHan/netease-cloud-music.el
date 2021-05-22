@@ -2,7 +2,7 @@
 
 ;; Author: SpringHan
 ;; Maintainer: SpringHan
-;; Version: 1.5
+;; Version: 2.0
 
 ;; This file is not part of GNU Emacs
 
@@ -28,55 +28,27 @@
 
 (defun netease-cloud-music-get-loginfo ()
   "Get login info."
-  (when (netease-cloud-music-exists-p "log-info")
-    (let* ((file (split-string
+  (when (file-exists-p netease-cloud-music-user-loginfo-file)
+    (let* ((content (split-string
                   (with-temp-buffer
-                    (insert-file-contents (concat netease-cloud-music-cache-directory
-                                                  "log-info"))
+                    (insert-file-contents netease-cloud-music-user-loginfo-file)
                     (buffer-string))
                   "\n" t))
-           (name (netease-cloud-music-list-string-to-string
-                  (split-string (car file) " " t)))
-           (password (netease-cloud-music-list-string-to-string
-                      (split-string (nth 1 file) " " t))))
-      (cons name password))))
+           (phone (cons (car content) (nth 1 content)))
+           (password (nth 2 content)))
+      (cons phone password))))
 
 (defun netease-cloud-music-save-loginfo (loginfo)
-  "Save login info."
-  (netease-cloud-music-exists-p "log-info" t)
-  (with-temp-file (concat netease-cloud-music-cache-directory "log-info")
+  "Save login info. LOGINFO is the info."
+  (unless (file-exists-p netease-cloud-music-user-loginfo-file)
+    (make-empty-file netease-cloud-music-user-loginfo-file))
+  (with-temp-file netease-cloud-music-user-loginfo-file
     (erase-buffer)
-    (insert (netease-cloud-music-string-to-char-string (car loginfo))
+    (insert (car (car loginfo)) ;Countrycode
             "\n"
-            (netease-cloud-music-string-to-char-string (cdr loginfo)))))
-
-(defun netease-cloud-music-string-to-char-string (string)
-  "Convert string to string that includes the last one's ASCII."
-  (let ((result "")
-        (string-list (string-to-list string)))
-    (mapc #'(lambda (c)
-              (setq result (concat result (if (string= result "")
-                                              ""
-                                            " ")
-                                   (number-to-string (string-to-char c)))))
-          string-list)
-    result))
-
-(defun netease-cloud-music-list-string-to-string (list-string)
-  "Convert the list includes ASCII strings to a string."
-  (let ((result ""))
-    (mapc #'(lambda (s) (setq result (concat result
-                                             (char-to-string (string-to-number s)))))
-          list-string)
-    result))
-
-(defun netease-cloud-music-exists-p (file &optional create)
-  "Check if FILE is exists. When CREATE is t, it'll create a empty file named FILE if it's not exists."
-  (let* ((file-path (concat netease-cloud-music-cache-directory file))
-         (exists-p (file-exists-p file-path)))
-    (when (and create (null exists-p))
-      (make-empty-file file-path))
-    exists-p))
+            (cdr (car loginfo)) ;Phone number
+            "\n"
+            (cdr loginfo))))          ;Password
 
 (defun netease-cloud-music-request-from-api (content &optional type limit)
   "Request the CONTENT from Netease Music API.
@@ -260,6 +232,58 @@ Like `memq', but use `equal'."
 ELE is a list."
   (dolist (item ele)
     (add-to-list 'netease-cloud-music-playlist item t 'equal)))
+
+(defun netease-cloud-music--api-downloaded ()
+  "Check if the third-party API has been downloaded."
+  (and (file-exists-p netease-cloud-music-api-dir)
+       (> (length (directory-files netease-cloud-music-api-dir)) 2)))
+
+(defun netease-cloud-music-api-process-live-p ()
+  "Check if the third-party API process is live."
+  (and netease-cloud-music-api-process
+       (process-live-p netease-cloud-music-api-process)))
+
+(defmacro netease-api-defun (name arg &optional docstring &rest body)
+  "Like `defun', but it will check the third-party api's status first.
+NAME is the function's name.
+ARG is the arguments for function.
+DOCSTRING is the doc-string for the function.
+BODY is the main codes for the function."
+  (declare (indent defun)
+           (debug defun)
+           (doc-string 3))
+  `(defun ,name ,arg
+     ,(when docstring
+        docstring)
+     ,(when (equal (car (car body)) 'interactive)
+        (prog1 (car body)
+          (pop body)))
+     (if (not (netease-cloud-music--api-downloaded))
+         (user-error "[Netease-Cloud-Music]: The third-party API has not been donwloaded!")
+       ,@body)))
+
+(defun netease-api-request (url)
+  "Request with the user info.
+URL is the url to request."
+  (let (result)
+    (request (format "http://localhost:%s/login/cellphone?phone=%s&md5_password=%s&countrycode=%s"
+                     netease-cloud-music-api-port
+                     (cdr netease-cloud-music-phone)
+                     netease-cloud-music-user-password
+                     (car netease-cloud-music-phone))
+      :success (netease-cloud-music-expand-form
+                (request url
+                  :parser 'buffer-string
+                  :success (netease-cloud-music-expand-form
+                            (with-current-buffer (get-buffer-create " *Request*")
+                              (insert data)))
+                  :sync t))
+      :sync t)
+    (with-current-buffer " *Request*"
+      (setq result (json-read-from-string (buffer-string))))
+    (when (get-buffer " *Request*")
+      (kill-buffer " *Request*"))
+    result))
 
 (provide 'netease-cloud-music-functions)
 
