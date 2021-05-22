@@ -1119,7 +1119,9 @@ INFO can be the id of playlist or its name."
 
 (defun netease-cloud-music-get-playlist-by-uid (uid)
   "Fetch playlist by UID."
-  (interactive "sEnter the uid: ")
+  (interactive (read-string "Enter the uid: "
+                            (when netease-cloud-music-user-id
+                              (number-to-string netease-cloud-music-user-id))))
   (let ((playlists (netease-cloud-music-get-user-playlist uid)))
     (netease-cloud-music-playlist--open-switch playlists)
     (setq netease-cloud-music-search-playlists playlists)))
