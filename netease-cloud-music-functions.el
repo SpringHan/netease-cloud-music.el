@@ -276,13 +276,13 @@ URL is the url to request."
                   :parser 'buffer-string
                   :success (netease-cloud-music-expand-form
                             (with-current-buffer (get-buffer-create " *Request*")
+                              (erase-buffer)
                               (insert data)))
                   :sync t))
       :sync t)
-    (with-current-buffer " *Request*"
-      (setq result (json-read-from-string (buffer-string))))
     (when (get-buffer " *Request*")
-      (kill-buffer " *Request*"))
+      (with-current-buffer " *Request*"
+        (setq result (json-read-from-string (buffer-string)))))
     result))
 
 (provide 'netease-cloud-music-functions)

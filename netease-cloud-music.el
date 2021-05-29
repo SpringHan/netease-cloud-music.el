@@ -140,6 +140,11 @@ pause-message seek-forward-message seek-backward-message"
   :type 'list
   :group 'netease-cloud-music)
 
+(defcustom netease-cloud-music-login-timer nil
+  "The timer for login."
+  :type 'timer
+  :group 'netease-cloud-music)
+
 (defvar netease-cloud-music-buffer-name "*Netease-Cloud-Music*"
   "The name of Netease Music buffer.")
 
@@ -471,8 +476,15 @@ pause-message seek-forward-message seek-backward-message"
         (let ((loginfo (netease-cloud-music-get-loginfo)))
           (when loginfo
             (setq netease-cloud-music-phone (car loginfo)
-                  netease-cloud-music-user-password (cdr loginfo))
-            (run-with-timer 1 nil 'netease-cloud-music--get-user-info)))))))
+                  netease-cloud-music-user-password (cdr loginfo)
+                  netease-cloud-music-login-timer
+                  (run-with-timer 1 2 (lambda ()
+                                        (if (and netease-cloud-music-user-id
+                                                 netease-cloud-music-username)
+                                            (progn
+                                              (cancel-timer netease-cloud-music-login-timer)
+                                              (setq netease-cloud-music-login-timer nil))
+                                          (netease-cloud-music--get-user-info)))))))))))
 
 (defun netease-cloud-music-download-api ()
   "Download the third-party API."
@@ -534,6 +546,8 @@ Otherwise return nil."
   (netease-cloud-music-cancel-timer t)
   (netease-cloud-music-save-playlist)
   (netease-cloud-music-stop-api t)
+  (when (get-buffer " *Request*")
+    (kill-buffer " *Request*"))
   (kill-buffer netease-cloud-music-buffer-name))
 
 (defmacro netease-cloud-music-expand-form (&rest form)
@@ -1277,7 +1291,7 @@ NO-ERROR means to close error signal."
         (message "[Netease-Cloud-Music]: Login successfully!")
         (netease-cloud-music-interface-init)))))
 
-(defun netease-cloud-music--song-url-by-user (id)
+(na-defun netease-cloud-music--song-url-by-user (id)
   "Get the song's url by user.
 ID is the song's id."
   (let ((song-info (netease-api-request
@@ -1287,16 +1301,18 @@ ID is the song's id."
         (user-error "[Netease-Cloud-Music]: The song whose id is %d cannot found!" id)
       (alist-get 'url (aref (alist-get 'data song-info) 0)))))
 
-(defun netease-cloud-music--get-user-info ()
+(na-defun netease-cloud-music--get-user-info ()
   "Get user's info."
-  (let ((info (cdr (car (netease-api-request
-                         (format "http://localhost:%s/login/status"
-                                 netease-cloud-music-api-port))))))
-    (if (/= 200 (alist-get 'code info))
-        (user-error "[Netease-Cloud-Music]: Phone number or password is error!")
-      (setq netease-cloud-music-username (alist-get 'nickname (alist-get 'profile info))
-            netease-cloud-music-user-id (alist-get 'id (alist-get 'account info)))
-      (message "[Netease-Cloud-Music]: Login successfully!")
-      (netease-cloud-music-interface-init))))
+  (let ((info (cdr (car (ignore-errors
+                          (netease-api-request
+                           (format "http://localhost:%s/login/status"
+                                   netease-cloud-music-api-port)))))))
+    (when info
+      (if (/= 200 (alist-get 'code info))
+          (user-error "[Netease-Cloud-Music]: Phone number or password is error!")
+        (setq netease-cloud-music-username (alist-get 'nickname (alist-get 'profile info))
+              netease-cloud-music-user-id (alist-get 'id (alist-get 'account info)))
+        (message "[Netease-Cloud-Music]: Login successfully!")
+        (netease-cloud-music-interface-init)))))
 
 (provide 'netease-cloud-music)
