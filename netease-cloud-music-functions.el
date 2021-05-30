@@ -279,6 +279,10 @@ URL is the url to request."
                               (erase-buffer)
                               (insert data)))
                   :sync t))
+      :error (cl-function (lambda (&rest args &key error-thrown &allow-other-keys)
+                            (when (string-match-p "^exited abnormally with code \\(.*\\)"
+                                                  (cdr error-thrown))
+                              (message nil))))
       :sync t)
     (when (get-buffer " *Request*")
       (with-current-buffer " *Request*"
