@@ -492,7 +492,7 @@ pause-message seek-forward-message seek-backward-message"
   (if (netease-cloud-music--api-downloaded)
       (user-error "[Netease-Cloud-Music]: The third-party API has been downloaded!")
     (async-shell-command
-     (format "git clone https://github.com/Binaryify/NeteaseCloudMusicApi.git %s --depth=1 && cd %s && npm install"
+     (format "git clone https://github.com/SpringHan/NeteaseCloudMusicApi.git %s --depth=1 && cd %s && npm install"
              netease-cloud-music-api-dir
              netease-cloud-music-api-dir)
      (get-buffer-create "*Netease-Cloud-Music-Api-Preperation*"))))
