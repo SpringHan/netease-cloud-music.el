@@ -25,6 +25,7 @@
 
         ;; Require it
         (require 'netease-cloud-music)
+        (require 'netease-cloud-music-ui)       ;If you want to use the default TUI, you should add this line in your configuration.
       #+end_src
 ** 快捷键
    | 快捷键 | 功能                       |
