@@ -35,7 +35,7 @@
   (let ((map (make-sparse-keymap)))
     (define-key map "g" 'netease-cloud-music-interface-init)
     (define-key map "Q" 'netease-cloud-music-close)
-    (define-key map "q" 'previous-buffer)
+    (define-key map "q" 'netease-cloud-music-back)
     (define-key map (kbd "SPC") 'netease-cloud-music-pause-or-continue)
     (define-key map (kbd "RET") 'netease-cloud-music-play-song-at-point)
     (define-key map "s" 'netease-cloud-music-save-playlist)
@@ -151,7 +151,7 @@
            (artist (cdr-safe song-info))
            song-list)
       (if (not (and song artist))
-          (user-error "[Netease-Cloud-Music]: The song info of the song under cursor is error!")
+          (na-error "The song info of the song under cursor is error!")
         (setq song-list (netease-cloud-music--get-song-list song artist))
         (netease-cloud-music-switch-close)
         (add-to-list 'netease-cloud-music-playlist song-list)
@@ -278,7 +278,7 @@
       (if (not (eobp))
           (progn
             (netease-cloud-music-write-cancel)
-            (user-error "[Netease-Cloud-Music]: There's an error when save the result!"))
+            (na-error "There's an error when save the result!"))
         (setq netease-cloud-music-playlist copy)
         (netease-cloud-music-write-cancel)
         (netease-cloud-music-save-playlist)
@@ -301,6 +301,8 @@
 (defun netease-cloud-music ()
   "Initialize the Netease Music buffer in netease-cloud-music-mode."
   (interactive)
+  (setq netease-cloud-music-last-buffer (current-buffer)) ;Record the buffer which called this function
+  
   (if (get-buffer netease-cloud-music-buffer-name)
       (switch-to-buffer netease-cloud-music-buffer-name)
     (unless (buffer-live-p (get-buffer netease-cloud-music-buffer-name))
@@ -376,7 +378,7 @@
   "Add all the searched playlists to the playlist"
   (interactive)
   (if (null netease-cloud-music-search-playlists)
-      (user-error "[Netease-Cloud-Music]: The playlist can not found!")
+      (na-error "The playlist can not found!")
     (dolist (playlist netease-cloud-music-search-playlists)
       (netease-cloud-music--append
        (netease-cloud-music-get-playlist-songs (cdr playlist))))
@@ -484,6 +486,14 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
       (netease-cloud-music-change-order current current)
       (goto-char (point-min))
       (forward-line (- current-line 2)))))
+
+(defun netease-cloud-music-back ()
+  "Back to the `netease-cloud-music-last-buffer'."
+  (interactive)
+  (if (null netease-cloud-music-last-buffer)
+      (previous-buffer)
+    (switch-to-buffer netease-cloud-music-last-buffer)
+    (setq netease-cloud-music-last-buffer nil)))
 
 (provide 'netease-cloud-music-ui)
 

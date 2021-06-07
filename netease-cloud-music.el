@@ -67,6 +67,11 @@
   :type 'process
   :group 'netease-cloud-music)
 
+(defcustom netease-cloud-music-last-buffer nil
+  "The buffer before calling `netease-cloud-music' funciton."
+  :type 'buffer
+  :group 'netease-cloud-music)
+
 (defcustom netease-cloud-music-api-buffer "*Netease-API*"
   "The third-party api process buffer."
   :type 'buffer
@@ -101,6 +106,16 @@
 
 (defcustom netease-cloud-music-playlist nil
   "The list of the playlist songs."
+  :type 'list
+  :group 'netease-cloud-music)
+
+(defcustom netease-cloud-music-backup-playlist nil
+  "The backup playlist."
+  :type 'list
+  :group 'netease-cloud-music)
+
+(defcustom netease-cloud-music-playlists nil
+  "The playlists of the user."
   :type 'list
   :group 'netease-cloud-music)
 
@@ -146,6 +161,12 @@ pause-message seek-forward-message seek-backward-message"
 (defcustom netease-cloud-music-login-timer nil
   "The timer for login."
   :type 'timer
+  :group 'netease-cloud-music)
+
+(defcustom netease-cloud-music-use-local-playlist t
+  "The type of the playlist now used.
+If it's t, meaning to use the local playlist."
+  :type 'boolean
   :group 'netease-cloud-music)
 
 (defvar netease-cloud-music-lyric-timer nil
@@ -202,11 +223,14 @@ pause-message seek-forward-message seek-backward-message"
 
 (defalias 'na-defun 'netease-api-defun)
 
+(defalias 'na-error 'netease-cloud-music-error
+  "To be same as the `na-defun', so use this name.")
+
 (defun netease-cloud-music-download-api ()
   "Download the third-party API."
   (interactive)
   (if (netease-cloud-music--api-downloaded)
-      (user-error "[Netease-Cloud-Music]: The third-party API has been downloaded!")
+      (na-error "The third-party API has been downloaded!")
     (async-shell-command
      (format "git clone https://github.com/SpringHan/NeteaseCloudMusicApi.git %s --depth=1 && cd %s && npm install"
              netease-cloud-music-api-dir
@@ -245,7 +269,8 @@ Otherwise return nil."
         netease-cloud-music-lyric nil
         netease-cloud-music-lyrics nil
         netease-cloud-music-update-lyric-timer nil
-        netease-cloud-music-lyric-song nil)
+        netease-cloud-music-lyric-song nil
+        netease-cloud-music-last-buffer nil)
   (netease-cloud-music-cancel-timer t)
   (netease-cloud-music-save-playlist)
   (netease-cloud-music-stop-api t)
@@ -277,8 +302,8 @@ SONG-NAME is a string."
   "Change the repeat mode."
   (interactive)
   (if (string= netease-cloud-music-repeat-mode "")
-      (message
-       "[Netease-Cloud-Music]: The repeat mode is in the initialization state. when you start playing song, it'll be set.")
+      (na-error
+       "The repeat mode is in the initialization state. when you start playing song, it'll be set!")
     (setq netease-cloud-music-repeat-mode
           (pcase netease-cloud-music-repeat-mode
             ("off" "song")
@@ -307,7 +332,7 @@ SONG-NAME is a string."
 (defun netease-cloud-music-play (song-id song-name artist-name)
   "Play the song by its SONG-ID and update the interface with SONG-NAME"
   (if (null song-id)
-      (user-error "[Netease-Cloud-Music]: There's no song-id!")
+      (na-error "There's no song-id!")
     (netease-cloud-music-kill-process)
     (setq netease-cloud-music-process
           (start-process "netease-cloud-music-play:process"
@@ -417,7 +442,7 @@ SONG-NAME is a string."
       (if (or (null (nth previous-song-index netease-cloud-music-playlist))
               (< previous-song-index 0))
           (if (string= netease-cloud-music-repeat-mode "off")
-              (user-error "[Netease-Cloud-Music]: There's no song previous.")
+              (na-error "There's no song previous.")
             (setq netease-cloud-music-playlist-song-index
                   (- (length netease-cloud-music-playlist) 1)))
         (setq netease-cloud-music-playlist-song-index previous-song-index))
@@ -434,7 +459,7 @@ SONG-NAME is a string."
           (if (string= netease-cloud-music-repeat-mode "off")
               (progn
                 (netease-cloud-music-kill-current-song)
-                (message "[Netease-Cloud-Music]: The playlist songs over."))
+                (na-error "The playlist songs over!"))
             (setq netease-cloud-music-playlist-song-index 0)
             (netease-cloud-music-playlist-play))
         (setq netease-cloud-music-playlist-song-index next-song-index)
@@ -619,7 +644,7 @@ Optional argument means init the lyrics list."
                        (read-number (format "Enter the number for the order(current one is %S): "
                                             (1+ current-song))))))
   (if (null song)
-      (user-error "[Netease-Cloud-Music]: The song is not exists!")
+      (na-error "The song is not exists!")
     (setq num (1- num))
     (let ((original-song (nth num netease-cloud-music-playlist))
           (song-info (nth song netease-cloud-music-playlist)))
@@ -686,21 +711,21 @@ Optional argument means init the lyrics list."
 INFO can be the id of playlist or its name."
   (interactive "MEnter the name of the playlist: ")
   (if (string= name "")
-      (user-error "[Netease-Cloud-Music]: The name of playlist can not be null!")
+      (na-error "The name of playlist can not be null!")
     (let ((playlists
            (netease-cloud-music-get-playlists
             (netease-cloud-music-request-from-api
              name 'playlist netease-cloud-music-search-limit))))
-      (setq netease-cloud-music-search-alist
+      (setq netease-cloud-music-search-playlists
             (cons name playlists)
             netease-cloud-music-search-page 1)
       (netease-cloud-music-playlist--open-switch playlists))))
 
 (defun netease-cloud-music-get-playlist-by-uid (uid)
   "Fetch playlist by UID."
-  (interactive (read-string "Enter the uid: "
-                            (when netease-cloud-music-user-id
-                              (number-to-string netease-cloud-music-user-id))))
+  (interactive (list (read-string "Enter the uid: "
+                                  (when netease-cloud-music-user-id
+                                    (number-to-string netease-cloud-music-user-id)))))
   (let ((playlists (netease-cloud-music-get-user-playlist uid)))
     (netease-cloud-music-playlist--open-switch playlists)
     (setq netease-cloud-music-search-playlists playlists)))
@@ -710,9 +735,9 @@ INFO can be the id of playlist or its name."
   (interactive)
   (let ((playlist (alist-get
                    (substring (thing-at-point 'line) 0 -1)
-                   netease-cloud-music-search-alist nil nil 'string-equal)))
+                   netease-cloud-music-search-playlists nil nil 'string-equal)))
     (if (null playlist)
-        (user-error "[Netease-Cloud-Music]: The playlist can not found!")
+        (na-error "The playlist can not found!")
       (netease-cloud-music--append (netease-cloud-music-get-playlist-songs playlist))
       (netease-cloud-music-save-playlist)
       (netease-cloud-music-switch-close)
@@ -722,24 +747,22 @@ INFO can be the id of playlist or its name."
   "Get the songs in the playlist whose if is PID."
   (let (songs song artist result)
     (request "https://music.163.com/api/playlist/detail"
-         :type "POST"
-         :data `(("id" . ,pid))
-         :parser 'json-read
-         :success (netease-cloud-music-expand-form (setq songs data))
-         :sync t)
-    (if (/= 200 (alist-get 'code songs))
-        (user-error "[Netease-Cloud-Music]: The pid can not fount!")
+      :type "POST"
+      :data `(("id" . ,pid))
+      :parser 'json-read
+      :success (netease-cloud-music-expand-form (setq songs data))
+      :sync t)
+    (if (or (null songs) (/= 200 (alist-get 'code songs)))
+        (na-error "The pid can not fount!")
       (setq songs (alist-get 'tracks (alist-get 'result songs)))
-      ;; (print (alist-get 'artists (aref songs 0)))
       (dotimes (n (length songs))
         (setq song (aref songs n)
               artist (aref (alist-get 'artists song) 0))
-        (add-to-list 'result
-                     (list (alist-get 'id song)
-                           (alist-get 'name song)
-                           (alist-get 'id artist)
-                           (alist-get 'name artist))
-                     t))
+        (setq result (append result
+                             (list (list (alist-get 'id song)
+                                         (alist-get 'name song)
+                                         (alist-get 'id artist)
+                                         (alist-get 'name artist))))))
       result)))
 
 (defun netease-cloud-music-get-user-playlist (uid)
@@ -754,14 +777,13 @@ INFO can be the id of playlist or its name."
       :success (netease-cloud-music-expand-form (setq playlist-json data))
       :sync t)
     (if (/= 200 (alist-get 'code playlist-json))
-        (user-error "[Netease-Cloud-Music]: The uid can not found!")
+        (na-error "The uid can not found!")
       (setq playlist-json (alist-get 'playlist playlist-json))
       (dotimes (n (length playlist-json))
         (setq playlist (aref playlist-json n))
-        (add-to-list 'result
-                     (cons (alist-get 'name playlist)
-                           (alist-get 'id playlist))
-                     t))
+        (setq result (append result
+                             (list (cons (alist-get 'name playlist)
+                                         (alist-get 'id playlist))))))
       result)))
 
 (defun netease-cloud-music-random-play ()
@@ -788,7 +810,7 @@ INFO can be the id of playlist or its name."
 (na-defun netease-cloud-music-start-api ()
   "Start third-party API."
   (if (netease-cloud-music-api-process-live-p)
-      (user-error "[Netease-Cloud-Music]: API process is running.")
+      (na-error "API process is running.")
     (setq netease-cloud-music-api-process
           (start-process "netease-api"
                          netease-cloud-music-api-buffer
@@ -802,7 +824,7 @@ NO-ERROR means to close error signal."
   (interactive)
   (if (not (netease-cloud-music-api-process-live-p))
       (unless no-error
-        (user-error "[Netease-Cloud-Music]: API process is not exists."))
+        (na-error "API process is not exists."))
     (if (not (get-buffer netease-cloud-music-api-buffer))
         (delete-process netease-cloud-music-api-process)
       (delete-process netease-cloud-music-api-buffer)
@@ -821,7 +843,7 @@ NO-ERROR means to close error signal."
   (interactive (list (read-string "Phone number(Countrycode[Space]number): " "+86 ")
                      (md5 (read-passwd "Password: "))))
   (if (not (netease-cloud-music-api-process-live-p))
-      (user-error "[Netease-Cloud-Music]: API process is null!")
+      (na-error "API process is null!")
     (let ((countrycode (prog2 (string-match "\\(.*\\) \\(.*\\)" phone)
                            (substring (match-string 1 phone) 1)
                          (setq phone (match-string 2 phone))))
@@ -833,7 +855,7 @@ NO-ERROR means to close error signal."
                   (setq login-result data))
         :sync t)
       (if (/= 200 (alist-get 'code login-result))
-          (user-error "[Netease-Cloud-Music]: Phone number or password is error!")
+          (na-error "Phone number or password is error!")
         (setq netease-cloud-music-user-id (alist-get 'id (alist-get 'account login-result))
               netease-cloud-music-username (alist-get 'nickname (alist-get 'profile login-result))
               netease-cloud-music-user-password password
@@ -848,26 +870,85 @@ NO-ERROR means to close error signal."
   "Get the song's url by user.
 ID is the song's id."
   (let ((song-info (netease-api-request
-                    (format "http://localhost:%s/song/url?id=%d"
-                            netease-cloud-music-api-port id))))
+                    (format "song/url?id=%d" id))))
     (if (null song-info)
-        (user-error "[Netease-Cloud-Music]: The API can't be used, maybe it's starting.")
+        (na-error "The API can't be used, maybe it's starting.")
       (if (/= 200 (alist-get 'code song-info))
-          (user-error "[Netease-Cloud-Music]: The song whose id is %d cannot found!" id)
+          (na-error "The song whose id is %d cannot found!" id)
         (alist-get 'url (aref (alist-get 'data song-info) 0))))))
 
 (na-defun netease-cloud-music--get-user-info ()
-  "Get user's info."
+  "Get user's info automatically and then login."
   (let ((info (cdr (car (ignore-errors
-                          (netease-api-request
-                           (format "http://localhost:%s/login/status"
-                                   netease-cloud-music-api-port)))))))
+                          (netease-api-request "login/status"))))))
     (when info
       (if (/= 200 (alist-get 'code info))
-          (user-error "[Netease-Cloud-Music]: Phone number or password is error!")
+          (na-error "Phone number or password is error!")
         (setq netease-cloud-music-username (alist-get 'nickname (alist-get 'profile info))
               netease-cloud-music-user-id (alist-get 'id (alist-get 'account info)))
         (message "[Netease-Cloud-Music]: Login successfully!")
         (netease-cloud-music-interface-init)))))
 
+(defun netease-cloud-music--refersh-playlists ()
+  "Refersh the user's playlists."
+  (unless netease-cloud-music-use-local-playlist
+    (setq netease-cloud-music-playlists
+          (netease-cloud-music-get-user-playlist netease-cloud-music-user-id))))
+
+(na-defun netease-cloud-music-create-playlist (name)
+  "Create a new playlist named NAME."
+  (interactive "sEnter the playlist's name: ")
+  (let ((new-playlist (netease-api-request
+                       (concat "playlist/create?name=" name))))
+    (if (or (null new-playlist) (/= 200 (alist-get 'code new-playlist)))
+        (na-error "Failed to create new playlist!")
+      (netease-cloud-music--refersh-playlists)
+      (message "[Netease-Cloud-Music]: Created the playlist named %s!" name))))
+
+(na-defun netease-cloud-music-delete-playlist (name)
+  "Delete the user's playlist which named NAME."
+  (interactive (list (completing-read "Enter the playlist you want to delete: "
+                                      (netease-cloud-music-delete--list-playlist))))
+  (let ((id (progn
+              (string-match "^\\(.*\\) - \\(.*\\)" name)
+              (match-string 2 name)))
+        playlist-name result)
+    (if (not (stringp id))
+        (na-error "The playlist is not exists!")
+      (setq result (netease-api-request (concat "playlist/delete?id=" id)))
+      (if (or (null result) (/= 200 (alist-get 'code result)))
+          (na-error "Failed to delete the playlist!")
+        (netease-cloud-music--refersh-playlists)
+        (message "[Netease-Cloud-Music]: Deleted the playlist successfully!")))))
+
+(na-defun netease-cloud-music-delete--list-playlist ()
+  "List the playlist then retunr it."
+  (let ((user-playlists (netease-cloud-music-get-user-playlist
+                         netease-cloud-music-user-id))
+        result)
+    (if (null user-playlists)
+        (na-error "Your playlist is null!")
+      (dolist (playlist user-playlists)
+        (setq result (append result
+                             (list (format "%s - %s"
+                                           (car playlist) (cdr playlist))))))
+      result)))
+
+(na-defun netease-cloud-music-update-playlist-name (id name)
+  "Replace the name of playlist whose id is equal to ID with NAME."
+  (let (result)
+    (if (null (netease-cloud-music-alist-cdr
+               id (netease-cloud-music-get-user-playlist
+                   netease-cloud-music-user-id)))
+        (na-error "The playlist is not exists!")
+      (setq result (netease-api-request
+                    (format "playlist/name/update?id=%d&name=%s"
+                            id (netease-cloud-music-encode-url name))))
+      (if (or (null result) (/= 200 (alist-get 'code result)))
+          (na-error "Failed to update the name of the playlist!")
+        (netease-cloud-music--refersh-playlists)
+        (message "[Netease-Cloud-Music]: Updated playlist's name successfully!")))))
+
 (provide 'netease-cloud-music)
+
+;;; netease-cloud-music.el end here

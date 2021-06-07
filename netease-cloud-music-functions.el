@@ -50,6 +50,12 @@
             "\n"
             (cdr loginfo))))          ;Password
 
+(defun netease-cloud-music-error (&rest seq)
+  "Print the error message, it's SEQ."
+  (let ((main (pop seq)))
+    (eval `(user-error (concat "[Netease-Cloud-Music]: " ,main)
+                          ,@seq))))
+
 (defun netease-cloud-music-request-from-api (content &optional type limit)
   "Request the CONTENT from Netease Music API.
 
@@ -96,7 +102,7 @@ Otherwise return nil."
   "Read the Netease Music json DATA and return the result."
   (let (song artist result)
     (if (/= 200 (alist-get 'code data))
-        (user-error "[Netease-Cloud-Music]: The song you search is error!")
+        (na-error "The song you search is error!")
       (setq data (alist-get 'songs (alist-get 'result data)))
       (dotimes (n (length data))
         (setq song (aref data n)
@@ -113,7 +119,7 @@ Otherwise return nil."
   "Read the playlist json DATA searched from API."
   (let (playlist result)
     (if (/= 200 (alist-get 'code data))
-        (user-error "[Netease-Cloud-Music]: The playlist you search is error!")
+        (na-error "The playlist you search is error!")
       (setq data (alist-get 'playlists (alist-get 'result data)))
       (dotimes (n (length data))
         (setq playlist (aref data n))
@@ -259,7 +265,7 @@ BODY is the main codes for the function."
         (prog1 (car body)
           (pop body)))
      (if (not (netease-cloud-music--api-downloaded))
-         (user-error "[Netease-Cloud-Music]: The third-party API has not been donwloaded!")
+         (na-error "The third-party API has not been donwloaded!")
        ,@body)))
 
 (defun netease-api-request (url)
@@ -272,7 +278,8 @@ URL is the url to request."
                      netease-cloud-music-user-password
                      (car netease-cloud-music-phone))
       :success (netease-cloud-music-expand-form
-                (request url
+                (request (format "http://localhost:%s/%s"
+                                 netease-cloud-music-api-port url)
                   :parser 'buffer-string
                   :success (netease-cloud-music-expand-form
                             (with-current-buffer (get-buffer-create " *Request*")
@@ -282,12 +289,44 @@ URL is the url to request."
       :error (cl-function (lambda (&rest args &key error-thrown &allow-other-keys)
                             (when (string-match-p "^exited abnormally with code \\(.*\\)"
                                                   (cdr error-thrown))
-                              (message nil))))
+                              (message nil)))) ;Ignore the warning when API has not finished starting.
       :sync t)
     (when (get-buffer " *Request*")
       (with-current-buffer " *Request*"
         (setq result (json-read-from-string (buffer-string)))))
     result))
+
+(defun netease-cloud-music-alist-cdr (key list)
+  "Find the first item in LIST which `cdr' is equal to KEY. Use `equal' to compare.
+If the item is exists, return the cons."
+  (if (not (listp list))
+      (user-error "The %S is not a list!" list)
+    (let (item)
+      (setq item
+            (catch 'stop
+              (dolist (ele list)
+                (when (equal key (cdr ele))
+                  (throw 'stop ele)))))
+      item)))
+
+(defun netease-cloud-music-encode-url (text)
+  "Change the special chars in the TEXT to the escape character."
+  (let ((chars (string-to-list text))
+        tmp)
+    (setq text nil)
+    (dolist (char chars)
+      (setq tmp (pcase char
+                  (32 "%20")
+                  (43 "%2B")
+                  (47 "%2F")
+                  (63 "%3F")
+                  (37 "%25")
+                  (35 "%23")
+                  (38 "%26")
+                  (61 "%3D")
+                  (_ (char-to-string char))))
+      (setq text (concat text tmp)))
+    text))
 
 (provide 'netease-cloud-music-functions)
 
