@@ -194,7 +194,9 @@ NO-RESULT-LIMIT means do not limit the catch."
             artist (nth 1 song-info)))
     (when (and name artist)
       (catch 'song-list
-        (dolist (song-info netease-cloud-music-playlist)
+        (dolist (song-info (if netease-cloud-music-use-local-playlist
+                               netease-cloud-music-playlist
+                             netease-cloud-music-playlists-songs))
           (when (and (string= name (nth 1 song-info))
                      (string= artist (nth 3 song-info)))
             (throw 'song-list index))
@@ -272,14 +274,15 @@ BODY is the main codes for the function."
   "Request with the user info.
 URL is the url to request."
   (let (result)
+    (setq url (format "http://localhost:%s/%s"
+                      netease-cloud-music-api-port url))
     (request (format "http://localhost:%s/login/cellphone?phone=%s&md5_password=%s&countrycode=%s"
                      netease-cloud-music-api-port
                      (cdr netease-cloud-music-phone)
                      netease-cloud-music-user-password
                      (car netease-cloud-music-phone))
       :success (netease-cloud-music-expand-form
-                (request (format "http://localhost:%s/%s"
-                                 netease-cloud-music-api-port url)
+                (request url
                   :parser 'buffer-string
                   :success (netease-cloud-music-expand-form
                             (with-current-buffer (get-buffer-create " *Request*")
@@ -289,11 +292,15 @@ URL is the url to request."
       :error (cl-function (lambda (&rest args &key error-thrown &allow-other-keys)
                             (when (string-match-p "^exited abnormally with code \\(.*\\)"
                                                   (cdr error-thrown))
-                              (message nil)))) ;Ignore the warning when API has not finished starting.
+                              (message nil)) ;Ignore the warning when API has not finished starting.
+                            (when (get-buffer " *Request")
+                              (with-current-buffer " *Request*"
+                                (erase-buffer))))) 
       :sync t)
     (when (get-buffer " *Request*")
       (with-current-buffer " *Request*"
-        (setq result (json-read-from-string (buffer-string)))))
+        (unless (string-empty-p (buffer-string))
+          (setq result (json-read-from-string (buffer-string))))))
     result))
 
 (defun netease-cloud-music-alist-cdr (key list)
