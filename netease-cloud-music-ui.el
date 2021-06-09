@@ -40,6 +40,7 @@
     (define-key map (kbd "RET") 'netease-cloud-music-play-song-at-point)
     (define-key map (kbd "TAB") 'netease-cloud-music-toggle-playlist-songs)
     (define-key map "c" 'netease-cloud-music-change-lyric-type)
+    (define-key map "C" 'netease-cloud-music-change-playlist-name)
     (define-key map "s" 'netease-cloud-music-save-playlist)
     (define-key map "u" 'netease-cloud-music-get-playlist-by-uid)
     (define-key map "f" 'netease-cloud-music-search-song)
@@ -756,6 +757,21 @@ MOVE means do not care about the cursor's position."
         (when netease-cloud-music-process
           (netease-cloud-music-kill-current-song))
         (throw 'stop t)))))
+
+(defun netease-cloud-music-change-playlist-name (pid name)
+  "Change the playlist's name under cursor."
+  (interactive
+   (let ((playlist (buffer-substring-no-properties
+                    (line-beginning-position)
+                    (line-end-position)))
+         id)
+     (if (setq id (alist-get playlist
+                             netease-cloud-music-playlists
+                             nil nil 'string-equal))
+         (list id (read-string "Enter the new name: "))
+       (na-error "The playlist is not exists!"))))
+  (netease-cloud-music-update-playlist-name pid name)
+  (netease-cloud-music-interface-init))
 
 (provide 'netease-cloud-music-ui)
 
