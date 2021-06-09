@@ -39,6 +39,7 @@
     (define-key map (kbd "SPC") 'netease-cloud-music-pause-or-continue)
     (define-key map (kbd "RET") 'netease-cloud-music-play-song-at-point)
     (define-key map (kbd "TAB") 'netease-cloud-music-toggle-playlist-songs)
+    (define-key map "c" 'netease-cloud-music-change-lyric-type)
     (define-key map "s" 'netease-cloud-music-save-playlist)
     (define-key map "u" 'netease-cloud-music-get-playlist-by-uid)
     (define-key map "f" 'netease-cloud-music-search-song)

@@ -130,8 +130,11 @@
   :group 'netease-cloud-music)
 
 (defcustom netease-cloud-music-show-lyric t
-  "Wether show lyric."
-  :type 'boolean
+  "Wether show lyric.
+If it's t, show the original lyric.
+If it's 'all, show the original lyric and the translated lyric.
+If it's nil, don't show the lyric."
+  :type 'symbol
   :group 'netease-cloud-music)
 
 (defcustom netease-cloud-music-showed-lyric-buffer nil
@@ -183,11 +186,17 @@ If it's t, meaning to use the local playlist."
 (defvar netease-cloud-music-lyric nil
   "The Netease Music lyric.")
 
+(defvar netease-cloud-music-tlyric nil
+  "Translated lyric.")
+
 (defvar netease-cloud-music-lyrics nil
   "The lyrics that will not be changed when playing.")
 
 (defvar netease-cloud-music-current-lyric nil
   "Current lyric.")
+
+(defvar netease-cloud-music-translated-lyric nil
+  "Translated lyric.")
 
 (defvar netease-cloud-music-lyric-song nil
   "The song of current lyrics.")
@@ -323,22 +332,119 @@ SONG-NAME is a string."
             ("random" "off")))
     (netease-cloud-music-tui-init)))
 
-;; TODO: Add translated lyric
 (defun netease-cloud-music-get-lyric (song-id)
-  (request
-    ;;netease-cloud-music-lyric-api
-    (format "http://music.163.com/api/song/lyric?id=%s&lv=1&kv=1&tv=-1" song-id)
-    :type "GET"
-    :parser 'json-read
-    :success (netease-cloud-music-expand-form
-              (setq result data))
-    :sync t)
-  (let ((value (loop for i in result
-                     if (eq (car i) 'lrc)
-                     return (cdr i))))
-    (loop for i in value
-          if (eq (car i) 'lyric)
-          return (cdr i))))
+  (let (result lyric tlyric)
+    (request
+      ;;netease-cloud-music-lyric-api
+      (format "http://music.163.com/api/song/lyric?id=%s&lv=1&kv=1&tv=-1" song-id)
+      :type "GET"
+      :parser 'json-read
+      :success (netease-cloud-music-expand-form
+                (setq result data))
+      :sync t)
+    (if (or (null result) (/= 200 (alist-get 'code result)))
+        (na-error "Failed to get the lyric.")
+      (setq lyric (alist-get 'lyric (alist-get 'lrc result)))
+      (when (eq netease-cloud-music-show-lyric 'all)
+        (setq tlyric (alist-get 'lyric (alist-get 'tlyric result))))
+      (setq result (if tlyric
+                       (cons lyric tlyric)
+                     lyric)))))
+
+(defun netease-cloud-music-change-lyric-type (&optional type)
+  "Change the lyric's type."
+  (interactive)
+  (pcase (if type
+             type
+           netease-cloud-music-show-lyric)
+    ('nil (setq netease-cloud-music-show-lyric t)
+         (netease-cloud-music-lyric-init (nth 2 netease-cloud-music-current-song))
+         (netease-cloud-music-start-lyric)
+         (netease-cloud-music-update-lyrics))
+    ('t (setq netease-cloud-music-show-lyric 'all)
+       (setq netease-cloud-music-lyrics
+             (netease-cloud-music-get-lyric
+              (nth 2 netease-cloud-music-current-song))
+             netease-cloud-music-tlyric
+             (split-string (cdr netease-cloud-music-lyrics) "\n"))
+       (netease-cloud-music-update-lyrics))
+    ('all (setq netease-cloud-music-show-lyric nil)
+          (setq netease-cloud-music-lyric nil
+                netease-cloud-music-lyrics nil
+                netease-cloud-music-tlyric nil
+                netease-cloud-music-lyric-song nil)
+          (netease-cloud-music-cancel-timer t))))
+
+(defun netease-cloud-music-lyric-init (song-id)
+  "Initialize the lyric.
+SONG-ID is the song's id for current lyric."
+  (if netease-cloud-music-show-lyric
+      (progn
+        (setq netease-cloud-music-lyric (netease-cloud-music-get-lyric song-id))
+        (with-current-buffer " *netease-cloud-music-play:process*"
+          (erase-buffer))
+        (with-current-buffer netease-cloud-music-buffer-name
+          (netease-cloud-music-add-header-lyrics))
+        (setq netease-cloud-music-current-lyric nil
+              netease-cloud-music-translated-lyric nil))
+    (setq netease-cloud-music-lyric nil)))
+
+(defun netease-cloud-music-start-lyric ()
+  "Start the lyric."
+  (if (and netease-cloud-music-lyric netease-cloud-music-show-lyric)
+      
+      (setq netease-cloud-music-lyrics netease-cloud-music-lyric
+            netease-cloud-music-lyric
+            (if (consp netease-cloud-music-lyrics)
+                (progn
+                  (setq netease-cloud-music-tlyric
+                        (split-string (cdr netease-cloud-music-lyrics)
+                                      "\n"))
+                  (split-string (car netease-cloud-music-lyrics) "\n"))
+              (split-string netease-cloud-music-lyrics "\n"))
+            netease-cloud-music-lyric-song (nth 2 netease-cloud-music-current-song)
+            netease-cloud-music-lyric-timer
+            (run-with-timer
+             0.5 1
+             (lambda ()
+               (if (and (get-buffer " *netease-cloud-music-play:process*")
+                        (length netease-cloud-music-lyric)
+                        (eq netease-cloud-music-lyric-song
+                            (nth 2 netease-cloud-music-current-song)))
+                   (with-current-buffer " *netease-cloud-music-play:process*"
+                     (goto-char (point-max))
+                     (when (and (search-backward "[K[0mA" nil t)
+                                (not (string= netease-cloud-music-process-status
+                                              "paused"))
+                                (not (string= netease-cloud-music-process-status
+                                              "")))
+                       (let* ((current-lyric (car netease-cloud-music-lyric))
+                              (current-song-time (buffer-substring-no-properties (+ 12 (point))
+                                                                                 (+ 17 (point))))
+                              (current-lyric-time (ignore-errors
+                                                    (substring current-lyric 1 6))))
+                         (when (and (stringp current-lyric-time)
+                                    (not
+                                     (netease-cloud-music--string>
+                                      current-lyric-time current-song-time)))
+                           (setq netease-cloud-music-current-lyric
+                                 (netease-cloud-music--current-lyric current-lyric))
+                           (setq netease-cloud-music-lyric (cdr netease-cloud-music-lyric)))
+
+                         (when (and (eq netease-cloud-music-show-lyric ;To sync translated lyric
+                                        'all)
+                                    (stringp current-lyric-time)
+                                    (not
+                                     (netease-cloud-music--string>
+                                      (ignore-errors
+                                        (substring (car netease-cloud-music-tlyric)
+                                                   1 6))
+                                      current-song-time)))
+                           (setq netease-cloud-music-translated-lyric
+                                 (netease-cloud-music--current-lyric
+                                  (car netease-cloud-music-tlyric)))
+                           (setq netease-cloud-music-tlyric (cdr netease-cloud-music-tlyric))))))
+                 (netease-cloud-music-cancel-timer)))))))
 
 (defun netease-cloud-music-play (song-id song-name artist-name)
   "Play the song by its SONG-ID and update the interface with SONG-NAME"
@@ -359,51 +465,12 @@ SONG-NAME is a string."
                            "")))
     (set-process-sentinel netease-cloud-music-process
                           'netease-cloud-music-process-sentinel)
-    (if netease-cloud-music-show-lyric
-        (progn
-          (setq netease-cloud-music-lyric (netease-cloud-music-get-lyric song-id))
-          (with-current-buffer " *netease-cloud-music-play:process*"
-            (erase-buffer))
-          (with-current-buffer netease-cloud-music-buffer-name
-            (netease-cloud-music-add-header-lyrics))
-          (setq netease-cloud-music-current-lyric nil))
-      (setq netease-cloud-music-lyric nil))
+    (netease-cloud-music-lyric-init song-id)
     (setq netease-cloud-music-process-status "playing")
     (setq netease-cloud-music-current-song
           `(,song-name ,artist-name ,song-id))
     (netease-cloud-music-adjust-song-index)
-    (if (and netease-cloud-music-lyric netease-cloud-music-show-lyric)
-        (setq netease-cloud-music-lyric (split-string netease-cloud-music-lyric "\n")
-              netease-cloud-music-lyrics netease-cloud-music-lyric
-              netease-cloud-music-lyric-song song-id
-              netease-cloud-music-lyric-timer
-              (run-with-timer
-               0.5 1
-               (lambda ()
-                 (if (and (get-buffer " *netease-cloud-music-play:process*")
-                          (length netease-cloud-music-lyric)
-                          (eq netease-cloud-music-lyric-song
-                              (nth 2 netease-cloud-music-current-song)))
-                     (with-current-buffer " *netease-cloud-music-play:process*"
-                       (goto-char (point-max))
-                       (when (and (search-backward "[K[0mA" nil t)
-                                  (not (string= netease-cloud-music-process-status
-                                                "paused"))
-                                  (not (string= netease-cloud-music-process-status
-                                                "")))
-                         (let* ((current-lyric (car netease-cloud-music-lyric))
-                                (current-song-time (buffer-substring-no-properties (+ 12 (point))
-                                                                                   (+ 17 (point))))
-                                (current-lyric-time (ignore-errors
-                                                      (substring current-lyric 1 6))))
-                           (when (and (stringp current-lyric-time)
-                                      (not
-                                       (netease-cloud-music--string>
-                                        current-lyric-time current-song-time)))
-                             (setq netease-cloud-music-current-lyric
-                                   (netease-cloud-music--current-lyric current-lyric))
-                             (setq netease-cloud-music-lyric (cdr netease-cloud-music-lyric))))))
-                   (netease-cloud-music-cancel-timer))))))
+    (netease-cloud-music-start-lyric)
     (netease-cloud-music-tui-init)))
 
 (defun netease-cloud-music-playlist-play ()
@@ -602,7 +669,12 @@ ALL means eval it in all of the `netease-cloud-music-showed-lyric-buffer'."
                         'face 'font-lock-function-name-face)
             ": "
             (when (stringp netease-cloud-music-current-lyric)
-              netease-cloud-music-current-lyric))))
+              netease-cloud-music-current-lyric)
+            (when (stringp netease-cloud-music-translated-lyric)
+              (concat
+               "   "
+               (propertize netease-cloud-music-translated-lyric
+                           'face '(:height 0.9)))))))
 
 (defun netease-cloud-music--string> (string1 string2)
   "Check if STRING1 is bigger than STRING2.
@@ -629,23 +701,37 @@ Mainly used to check the time."
 Optional argument means init the lyrics list."
   (when netease-cloud-music-show-lyric
     (when init
-      (setq netease-cloud-music-lyric netease-cloud-music-lyrics))
+      (setq netease-cloud-music-lyric
+            (if (eq netease-cloud-music-show-lyric 'all)
+                (progn
+                  (setq netease-cloud-music-tlyric
+                        (split-string
+                         (cdr netease-cloud-music-lyrics) "\n"))
+                  (split-string
+                   (car netease-cloud-music-lyrics) "\n"))
+                (split-string netease-cloud-music-lyrics "\n"))))
     (with-current-buffer " *netease-cloud-music-play:process*"
       (when (search-backward "[K[0mA" nil t)
         (let ((current-song-time (buffer-substring-no-properties (+ 12 (point))
                                                                  (+ 17 (point))))
               (current-time (ignore-errors
                               (substring (car netease-cloud-music-lyric) 1 6)))
-              current-lyric)
+              current-lyric
+              current-tlyric)
           (while (not
                   (netease-cloud-music--string> current-time current-song-time))
             (setq current-time
                   (ignore-errors
                     (substring (car netease-cloud-music-lyric) 1 6)))
-            (setq current-lyric (car netease-cloud-music-lyric)
-                  netease-cloud-music-lyric (cdr netease-cloud-music-lyric)))
+            (setq current-lyric (pop netease-cloud-music-lyric))
+            (when (eq netease-cloud-music-show-lyric 'all)
+              (setq current-tlyric (pop netease-cloud-music-tlyric))))
+
           (setq netease-cloud-music-current-lyric
-                (netease-cloud-music--current-lyric current-lyric)))))))
+                (netease-cloud-music--current-lyric current-lyric))
+          (when (eq netease-cloud-music-show-lyric 'all)
+            (netease-cloud-music--current-lyric
+             current-tlyric)))))))
 
 (defun netease-cloud-music-change-order (song num)
   "Change the song's to NUM."
