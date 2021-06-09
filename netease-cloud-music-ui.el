@@ -421,9 +421,10 @@
                            (cancel-timer netease-cloud-music-login-timer)
                            (setq netease-cloud-music-login-timer nil))
                        (netease-cloud-music--get-user-info)
-                       (setq netease-cloud-music-playlists
-                             (netease-cloud-music-get-user-playlist
-                              netease-cloud-music-user-id))
+                       (ignore-errors
+                         (setq netease-cloud-music-playlists
+                               (netease-cloud-music-get-user-playlist
+                                netease-cloud-music-user-id)))
                        (netease-cloud-music-interface-init)))))))))))
 
 (defun netease-cloud-music-close ()
