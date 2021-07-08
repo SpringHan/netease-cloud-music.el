@@ -281,9 +281,9 @@ Otherwise return nil."
           (kill-buffer " *netease-cloud-music-play:process*"))
       (delete-process netease-cloud-music-process))
     (when netease-cloud-music-lyric-timer
-      (netease-cloud-music-cancel-timer))
-    (setq netease-cloud-music-process nil
-          netease-cloud-music-current-song nil)))
+      (netease-cloud-music-cancel-timer)))
+  (setq netease-cloud-music-process nil
+          netease-cloud-music-current-song nil))
 
 (defun netease-cloud-music-quit ()      ;This command is just used for initialize the vars when exiting.
   "Quit the music client."
@@ -509,7 +509,7 @@ SONG-ID is the song's id for current lyric."
   "The sentinel of Netease Music process."
   (when (string-match "\\(finished\\|Exiting\\|killed\\|exited\\)" event)
     (pcase netease-cloud-music-repeat-mode
-      ("off" (netease-cloud-music-kill-current-song))
+      ("off" (netease-cloud-music-kill-current-song t))
       ("song"
        (setq netease-cloud-music-process-status "")
        (netease-cloud-music-play
@@ -576,10 +576,12 @@ SONG-ID is the song's id for current lyric."
        (setq netease-cloud-music-process-status "playing")))
     (netease-cloud-music-tui-init)))
 
-(defun netease-cloud-music-kill-current-song ()
-  "Kill the current song."
+(defun netease-cloud-music-kill-current-song (&optional force)
+  "Kill the current song.
+FORCE means to forcely kill it."
   (interactive)
-  (when (netease-cloud-music-process-live-p)
+  (when (or (netease-cloud-music-process-live-p)
+            force)
     (netease-cloud-music-kill-process)
     (setq netease-cloud-music-process-status "")
     (netease-cloud-music-tui-init)))
