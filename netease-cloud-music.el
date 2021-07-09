@@ -856,30 +856,21 @@ INFO can be the id of playlist or its name."
 
 (defun netease-cloud-music-get-playlist-songs (pid)
   "Get the songs in the playlist whose if is PID."
-  (let (songs api song artist result)
+  (let (songs song artist result)
     (if (and netease-cloud-music-playlists
              (netease-cloud-music-alist-cdr pid netease-cloud-music-playlists))
-        (setq songs (netease-api-request (format "playlist/detail?id=%d" pid))
-              api t)                    ;To mean that the songs json were get from API.
-      (request "https://music.163.com/api/playlist/detail"
-        :type "POST"
-        :data `(("id" . ,pid))
+        (setq songs (netease-api-request (format "playlist/detail?id=%d" pid)))
+      (request (format "https://music.163.com/api/v6/playlist/detail?id=%d"
+                       pid)
         :parser 'json-read
         :success (netease-cloud-music-expand-form (setq songs data))
         :sync t))
     (if (or (null songs) (/= 200 (alist-get 'code songs)))
         (na-error "The pid can not fount!")
-      (setq songs (alist-get 'tracks
-                             (if api
-                                 (alist-get 'playlist songs)
-                               (alist-get 'result songs))))
+      (setq songs (alist-get 'tracks (alist-get 'playlist songs)))
       (dotimes (n (length songs))
         (setq song (aref songs n)
-              artist (aref (alist-get (if api
-                                          'ar
-                                        'artist)
-                                      song)
-                           0))
+              artist (aref (alist-get 'ar song) 0))
         (setq result (append result
                              (list (list (alist-get 'id song)
                                          (alist-get 'name song)
