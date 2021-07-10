@@ -283,7 +283,7 @@ Otherwise return nil."
     (when netease-cloud-music-lyric-timer
       (netease-cloud-music-cancel-timer)))
   (setq netease-cloud-music-process nil
-          netease-cloud-music-current-song nil))
+        netease-cloud-music-current-song nil))
 
 (defun netease-cloud-music-quit ()      ;This command is just used for initialize the vars when exiting.
   "Quit the music client."
@@ -464,9 +464,14 @@ SONG-ID is the song's id for current lyric."
                          " *netease-cloud-music-play:process*"
                          (car netease-cloud-music-player-command)
                          (if netease-cloud-music-user-id
-                             (netease-cloud-music--song-url-by-user song-id)
+                             (netease-cloud-music--song-url-by-user
+                              (if (stringp song-id)
+                                  (string-to-number song-id)
+                                song-id))
                            (concat netease-cloud-music-song-link
-                                   (number-to-string song-id)))
+                                   (if (numberp song-id)
+                                       (number-to-string song-id)
+                                     song-id)))
                          (if (string= (car netease-cloud-music-player-command)
                                       "mpv")
                              "--input-ipc-server=/tmp/mpvserver"

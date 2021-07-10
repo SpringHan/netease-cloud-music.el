@@ -601,7 +601,8 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
 (defun netease-cloud-music-back ()
   "Back to the `netease-cloud-music-last-buffer'."
   (interactive)
-  (if (null netease-cloud-music-last-buffer)
+  (if (or (null netease-cloud-music-last-buffer)
+          (null (buffer-name (get-buffer netease-cloud-music-last-buffer))))
       (previous-buffer)
     (switch-to-buffer netease-cloud-music-last-buffer)
     (setq netease-cloud-music-last-buffer nil)))
