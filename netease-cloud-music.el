@@ -1264,7 +1264,3 @@ If ADD is t, add songs.Otherwise delete songs."
 (provide 'netease-cloud-music)
 
 ;;; netease-cloud-music.el end here
-
-(provide 'netease-cloud-music)
-
-;;; netease-cloud-music.el ends here
