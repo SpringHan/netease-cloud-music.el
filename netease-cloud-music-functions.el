@@ -246,6 +246,10 @@ ELE is a list."
   (and (file-exists-p netease-cloud-music-api-dir)
        (> (length (directory-files netease-cloud-music-api-dir)) 2)))
 
+(defun netease-cloud-music--api-need-downloaded ()
+  "Check if `netease-cloud-music-api-type' is depended on downloaded repo."
+  (memq netease-cloud-music-api-type '(npm)))
+
 (defun netease-cloud-music-api-process-live-p ()
   "Check if the third-party API process is live."
   (and netease-cloud-music-api-process
@@ -266,7 +270,8 @@ BODY is the main codes for the function."
      ,(when (equal (car (car body)) 'interactive)
         (prog1 (car body)
           (pop body)))
-     (if (not (netease-cloud-music--api-downloaded))
+     (if (not (or (not (netease-cloud-music--api-need-downloaded))
+                  (netease-cloud-music--api-downloaded))) ; = !(x -> y)
          (na-error "The third-party API has not been donwloaded!")
        ,@body)))
 
