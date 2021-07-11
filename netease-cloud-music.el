@@ -98,20 +98,20 @@ docker: use docker to start the api."
 
 (defcustom netease-cloud-music-api-repo
   "https://github.com/SpringHan/NeteaseCloudMusicApi.git"
-  "The git repo for ncm api. It will be cloned into
-`netease-cloud-music-api-dir' if `netease-cloud-music-api-type' is npm"
+  "The git repo for ncm api.
+It will be cloned into `netease-cloud-music-api-dir' if `netease-cloud-music-api-type' is npm"
   :type 'string
   :group 'netease-cloud-music)
 
 (defcustom netease-cloud-music-api-docker-image
-  "docker.io/binaryify/netease_cloud_music_api:latest" 
-  "The register for docker image of  netease-cloud-music-api."
+  "docker.io/binaryify/netease_cloud_music_api:latest"
+  "The register for docker image of netease-cloud-music-api."
   :group 'netease-cloud-music
   :type 'string)
 
 (defcustom netease-cloud-music-docker-exec (or (executable-find "docker")
                                                (executable-find "podman"))
-  "The docker  executable path"
+  "The docker executable path."
   :type 'string
   :group 'netease-cloud-music)
 
@@ -268,7 +268,7 @@ If it's t, meaning to use the local playlist."
   "Username.")
 
 (defvar netease-cloud-music-user-password nil
-  "Password")
+  "Password.")
 
 (defvar netease-cloud-music-user-id nil
   "User ID.")
@@ -340,7 +340,7 @@ Otherwise return nil."
     (kill-buffer " *Request*")))
 
 (defmacro netease-cloud-music-expand-form (&rest form)
-  "Expand form in function-form."
+  "Expand FORM in function-form."
   `(cl-function
     (lambda (&key data &allow-other-keys)
       ,@form)))
@@ -365,7 +365,7 @@ SONG-NAME is a string."
   (interactive)
   (if (string= netease-cloud-music-repeat-mode "")
       (na-error
-       "The repeat mode is in the initialization state. when you start playing song, it'll be set!")
+       "The repeat mode is in the initialization state.  when you start playing song, it'll be set!")
     (setq netease-cloud-music-repeat-mode
           (pcase netease-cloud-music-repeat-mode
             ("off" "song")
@@ -375,6 +375,7 @@ SONG-NAME is a string."
     (netease-cloud-music-tui-init)))
 
 (defun netease-cloud-music-get-lyric (song-id)
+  "Get the lyrics of the song whose id is SONG-ID."
   (let (result lyric tlyric)
     (request
       ;;netease-cloud-music-lyric-api
@@ -385,7 +386,7 @@ SONG-NAME is a string."
                 (setq result data))
       :sync t)
     (if (or (null result) (/= 200 (alist-get 'code result)))
-        (na-error "Failed to get the lyric.")
+        (na-error "Failed to get the lyric!")
       (setq lyric (alist-get 'lyric (alist-get 'lrc result)))
       (when (eq netease-cloud-music-show-lyric 'all)
         (setq tlyric (alist-get 'lyric (alist-get 'tlyric result))))
@@ -394,7 +395,7 @@ SONG-NAME is a string."
                      lyric)))))
 
 (defun netease-cloud-music-change-lyric-type (&optional type)
-  "Change the lyric's type."
+  "Change the lyric's TYPE."
   (interactive)
   (pcase (if type
              type
@@ -489,7 +490,7 @@ SONG-ID is the song's id for current lyric."
                  (netease-cloud-music-cancel-timer)))))))
 
 (defun netease-cloud-music-play (song-id song-name artist-name)
-  "Play the song by its SONG-ID and update the interface with SONG-NAME"
+  "Play the song by its SONG-ID and update the interface with SONG-NAME & ARTIST-NAME."
   (if (null song-id)
       (na-error "There's no song-id!")
     (netease-cloud-music-kill-process)
@@ -545,7 +546,8 @@ SONG-ID is the song's id for current lyric."
                               (nth 3 song))))
 
 (defun netease-cloud-music-process-sentinel (process event)
-  "The sentinel of Netease Music process."
+  "The sentinel of Netease Music process.
+PROCESS is the process, EVENT is the event trigger sentinel."
   (when (string-match "\\(finished\\|Exiting\\|killed\\|exited\\)" event)
     (pcase netease-cloud-music-repeat-mode
       ("off" (netease-cloud-music-kill-current-song t))
@@ -574,7 +576,7 @@ SONG-ID is the song's id for current lyric."
                            netease-cloud-music-playlists-songs)))
               (< previous-song-index 0))
           (if (string= netease-cloud-music-repeat-mode "off")
-              (na-error "There's no song previous.")
+              (na-error "There's no song previous!")
             (setq netease-cloud-music-playlist-song-index
                   (- (length (if netease-cloud-music-use-local-playlist
                                  netease-cloud-music-playlist
@@ -700,7 +702,8 @@ ALL means eval it in all of the `netease-cloud-music-showed-lyric-buffer'."
                     netease-cloud-music-showed-lyric-buffer)))))
 
 (defun netease-cloud-music-cancel-timer (&optional delete-lyrics)
-  "Cancel timer and kill the lyrics."
+  "Cancel timer and kill the lyrics.
+DELETE-LYRICS means delete all the lyric headers."
   (when (timerp netease-cloud-music-lyric-timer)
     (cancel-timer netease-cloud-music-lyric-timer))
   (setq netease-cloud-music-lyric-timer nil)
@@ -747,7 +750,7 @@ Mainly used to check the time."
 
 (defun netease-cloud-music-update-lyrics (&optional init)
   "Force Update the lyrics.
-Optional argument means init the lyrics list."
+Optional argument INIT means init the lyrics list."
   (when netease-cloud-music-show-lyric
     (when init
       (setq netease-cloud-music-lyric
@@ -783,7 +786,7 @@ Optional argument means init the lyrics list."
              current-tlyric)))))))
 
 (defun netease-cloud-music-change-order (song num)
-  "Change the song's to NUM."
+  "Change the SONG's order to NUM."
   (interactive (let ((current-song (netease-cloud-music--current-song)))
                  (list current-song
                        (read-number (format "Enter the number for the order(current one is %S): "
@@ -828,7 +831,7 @@ Optional argument means init the lyrics list."
       (setq netease-cloud-music-playlist-song-index index))))
 
 (defun netease-cloud-music-ask-play (song)
-  "Play song by asking."
+  "Play the SONG by asking."
   (interactive
    (list
     (let (song-list)
@@ -852,7 +855,8 @@ Optional argument means init the lyrics list."
                                 (nth 3 song-info)))))
 
 (defun netease-cloud-music-save-playlist (&optional hint)
-  "Save playlist to the cache file."
+  "Save playlist to the cache file.
+If HINT is not non-nil, show the hint message."
   (interactive (list t))
   (unless (file-exists-p netease-cloud-music-playlist-file)
     (make-empty-file netease-cloud-music-playlist-file))
@@ -870,8 +874,7 @@ Optional argument means init the lyrics list."
     (setq netease-cloud-music-playlist (car (read-from-string playlist)))))
 
 (defun netease-cloud-music-search-playlist (name)
-  "Fetch the playlist by INFO.
-INFO can be the id of playlist or its name."
+  "Fetch the playlist by NAME."
   (interactive "MEnter the name of the playlist: ")
   (if (string= name "")
       (na-error "The name of playlist can not be null!")
@@ -948,6 +951,8 @@ INFO can be the id of playlist or its name."
   (netease-cloud-music-playlist-play))
 
 (defmacro netease-cloud-music--api-func (action)
+  "Call the function which is matched with `netease-cloud-music--.*-api-.*'.
+ACTION is its function."
   (let* ((sfunc (format "netease-cloud-music--%s-api-%s"
                         (symbol-name action)
                         (symbol-name netease-cloud-music-api-type)))
@@ -955,12 +960,14 @@ INFO can be the id of playlist or its name."
     `(,func)))
 
 (defun netease-cloud-music--start-api-npm ()
+  "Start API by using npm."
   (start-process "netease-api"
                  netease-cloud-music-api-buffer
                  "node"
                  (expand-file-name "app.js" netease-cloud-music-api-dir)))
 
 (defun netease-cloud-music--start-api-docker ()
+  "Start API by using docker."
   (let ((container-name "netease_cloud_music_api")
         (containers
          (with-temp-buffer
@@ -979,11 +986,13 @@ INFO can be the id of playlist or its name."
                      netease-cloud-music-api-docker-image))))
 
 (defun netease-cloud-music--stop-api-npm ()
+  "Stop API launched by npm."
   (if (not (get-buffer netease-cloud-music-api-buffer))
       (delete-process netease-cloud-music-api-process)
     (delete-process netease-cloud-music-api-buffer)))
 
 (defun netease-cloud-music--stop-api-docker ()
+  "Stop API launched by docker."
   (if (not (get-buffer netease-cloud-music-api-buffer))
       (delete-process netease-cloud-music-api-process)
     (delete-process netease-cloud-music-api-buffer))
@@ -995,7 +1004,7 @@ INFO can be the id of playlist or its name."
 (na-defun netease-cloud-music-start-api ()
   "Start third-party API."
   (if (netease-cloud-music-api-process-live-p)
-      (na-error "API process is running.")
+      (na-error "API process is running!")
     (setq netease-cloud-music-api-process
           (netease-cloud-music--api-func start)))
   (message "[Netease-Cloud-Music]: API process started."))
@@ -1006,7 +1015,7 @@ NO-ERROR means to close error signal."
   (interactive)
   (if (not (netease-cloud-music-api-process-live-p))
       (unless no-error
-        (na-error "API process is not exists."))
+        (na-error "API process is not exists!"))
     (netease-cloud-music--api-func stop)
     (kill-buffer netease-cloud-music-api-buffer))
   (setq netease-cloud-music-api-process nil)
@@ -1052,7 +1061,7 @@ ID is the song's id."
   (let ((song-info (netease-api-request
                     (format "song/url?id=%d" id))))
     (if (null song-info)
-        (na-error "The API can't be used, maybe it's starting.")
+        (na-error "The API can't be used, maybe it's starting!")
       (if (/= 200 (alist-get 'code song-info))
           (na-error "The song whose id is %d cannot found!" id)
         (alist-get 'url (aref (alist-get 'data song-info) 0))))))
@@ -1225,9 +1234,9 @@ If ADD is t, add songs.Otherwise delete songs."
       (if (or (null result) (/= 200 (alist-get)))
           (na-error "Failed to like/dislike the song!")
         (message "[Netease-Cloud-Music]: %s the song successfully!"
-                   (if (string-equal option "true")
-                       "Liked "
-                     "Disliked"))
+                 (if (string-equal option "true")
+                     "Liked "
+                   "Disliked"))
         (when (and netease-cloud-music-playlist-id
                    (= netease-cloud-music-playlist-id like-playlist))
           (run-with-timer
@@ -1255,3 +1264,7 @@ If ADD is t, add songs.Otherwise delete songs."
 (provide 'netease-cloud-music)
 
 ;;; netease-cloud-music.el end here
+
+(provide 'netease-cloud-music)
+
+;;; netease-cloud-music.el ends here
