@@ -317,7 +317,13 @@ Otherwise return nil."
     (when netease-cloud-music-lyric-timer
       (netease-cloud-music-cancel-timer)))
   (setq netease-cloud-music-process nil
-        netease-cloud-music-current-song nil))
+        netease-cloud-music-current-song nil)
+  (when (get-buffer "eaf-netease-cloud-music")
+    (eaf-setq eaf-netease-cloud-music-play-status "")
+    (with-current-buffer "eaf-netease-cloud-music"
+      (eaf-call-sync "call_function_with_args" eaf--buffer-id
+                     "set_panel_song" "" "")
+      (eaf-call-sync "call_function" eaf--buffer-id "update_play_status"))))
 
 (defun netease-cloud-music-quit ()      ;This command is just used for initialize the vars when exiting.
   "Quit the music client."
@@ -372,7 +378,10 @@ SONG-NAME is a string."
             ("song" "playlist")
             ("playlist" "random")
             ("random" "off")))
-    (netease-cloud-music-tui-init)))
+    (netease-cloud-music-tui-init)
+    (when (get-buffer "eaf-netease-cloud-music")
+      (eaf-setq eaf-netease-cloud-music-repeat-mode
+                netease-cloud-music-repeat-mode))))
 
 (defun netease-cloud-music-get-lyric (song-id)
   "Get the lyrics of the song whose id is SONG-ID."
@@ -517,9 +526,17 @@ SONG-ID is the song's id for current lyric."
     (setq netease-cloud-music-process-status "playing")
     (setq netease-cloud-music-current-song
           `(,song-name ,artist-name ,song-id))
+    (when (string= netease-cloud-music-repeat-mode "")
+      (setq netease-cloud-music-repeat-mode "song"))
     (netease-cloud-music-adjust-song-index)
     (netease-cloud-music-start-lyric)
-    (netease-cloud-music-tui-init)))
+    (netease-cloud-music-tui-init)
+    (when (get-buffer "eaf-netease-cloud-music")
+      (eaf-setq eaf-netease-cloud-music-play-status "playing")
+      (with-current-buffer "eaf-netease-cloud-music"
+        (eaf-call-sync "call_function_with_args" eaf--buffer-id
+                       "set_panel_song" song-name artist-name)
+        (eaf-call-sync "call_function" eaf--buffer-id "update_play_status")))))
 
 (defun netease-cloud-music-playlist-play ()
   "Play the playlist songs."
@@ -615,7 +632,12 @@ PROCESS is the process, EVENT is the event trigger sentinel."
        (setq netease-cloud-music-process-status "paused"))
       ("paused"
        (setq netease-cloud-music-process-status "playing")))
-    (netease-cloud-music-tui-init)))
+    (netease-cloud-music-tui-init)
+    (when (get-buffer "eaf-netease-cloud-music")
+      (eaf-setq eaf-netease-cloud-music-play-status
+                (if (string= netease-cloud-music-process-status "paused")
+                    "playing"
+                  "paused")))))
 
 (defun netease-cloud-music-kill-current-song (&optional force)
   "Kill the current song.
