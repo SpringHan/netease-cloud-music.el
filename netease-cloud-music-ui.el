@@ -598,15 +598,6 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
       (goto-char (point-min))
       (forward-line (- current-line 2)))))
 
-(defun netease-cloud-music-back ()
-  "Back to the `netease-cloud-music-last-buffer'."
-  (interactive)
-  (if (or (null netease-cloud-music-last-buffer)
-          (null (buffer-name (get-buffer netease-cloud-music-last-buffer))))
-      (previous-buffer)
-    (switch-to-buffer netease-cloud-music-last-buffer)
-    (setq netease-cloud-music-last-buffer nil)))
-
 ;; NOTE: EAF Sign
 (defun netease-cloud-music-delete-song-from-playlist ()
   "Delete current song from playlist."

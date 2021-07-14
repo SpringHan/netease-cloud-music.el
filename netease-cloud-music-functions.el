@@ -340,6 +340,17 @@ If the item is exists, return the cons."
       (setq text (concat text tmp)))
     text))
 
+(defmacro netease-cloud-music-for-eaf (&rest body)
+  "The macro for eaf. BODY is the lisp you want to execute."
+  (let ((with-eaf-buffer (eq (car body) :eaf-buffer)))
+    (when with-eaf-buffer
+      (pop body))
+    `(when (get-buffer "eaf-netease-cloud-music")
+       ,(if with-eaf-buffer
+            `(with-current-buffer "eaf-netease-cloud-music"
+               ,@body)
+          `(eval ,@body)))))
+
 (provide 'netease-cloud-music-functions)
 
 ;;; netease-cloud-music-functions.el ends here
