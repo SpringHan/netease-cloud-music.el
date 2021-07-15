@@ -578,26 +578,6 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
       (goto-char (point-min))
       (forward-line 3))))
 
-(defun netease-cloud-music-move-down ()
-  "Move the current song down."
-  (interactive)
-  (let ((current (netease-cloud-music--current-song))
-        (current-line (line-number-at-pos)))
-    (when current
-      (netease-cloud-music-change-order current (+ current 2))
-      (goto-char (point-min))
-      (forward-line current-line))))
-
-(defun netease-cloud-music-move-up ()
-  "Move the current song up."
-  (interactive)
-  (let ((current (netease-cloud-music--current-song))
-        (current-line (line-number-at-pos)))
-    (when current
-      (netease-cloud-music-change-order current current)
-      (goto-char (point-min))
-      (forward-line (- current-line 2)))))
-
 (defun netease-cloud-music-toggle-playlist-songs (pid)
   "Toggle the songs of playlist under cursor."
   (interactive (list
