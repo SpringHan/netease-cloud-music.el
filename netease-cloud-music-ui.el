@@ -598,46 +598,6 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
       (goto-char (point-min))
       (forward-line (- current-line 2)))))
 
-;; NOTE: EAF Sign
-(defun netease-cloud-music-delete-song-from-playlist ()
-  "Delete current song from playlist."
-  (interactive)
-  (let ((song (netease-cloud-music--current-song))
-        (current-line (line-number-at-pos)))
-    (when song
-      (if netease-cloud-music-use-local-playlist
-          (progn
-            (setq netease-cloud-music-playlist
-                  (delete (nth song netease-cloud-music-playlist)
-                          netease-cloud-music-playlist))
-            (netease-cloud-music-save-playlist))
-        (netease-cloud-music--track
-         nil netease-cloud-music-playlist-id
-         (car (nth song netease-cloud-music-playlists-songs))))
-      (netease-cloud-music-interface-init)
-      (goto-char (point-min))
-      (forward-line (1- current-line)))))
-
-;; NOTE: EAF Sign
-(defun netease-cloud-music-delete-playing-song ()
-  "Delete playing song."
-  (interactive)
-  (if netease-cloud-music-use-local-playlist
-      (progn
-        (setq netease-cloud-music-playlist
-             (delete (nth
-                      (netease-cloud-music--current-song
-                       (format "%s - %s"
-                               (car netease-cloud-music-current-song)
-                               (nth 1 netease-cloud-music-current-song)))
-                      netease-cloud-music-playlist)
-                     netease-cloud-music-playlist))
-        (netease-cloud-music-save-playlist))
-    (netease-cloud-music--track
-     nil netease-cloud-music-playlist-id
-     (nth 2 netease-cloud-music-current-song)))
-  (netease-cloud-music-process-sentinel nil "killed"))
-
 (defun netease-cloud-music-toggle-playlist-songs (pid)
   "Toggle the songs of playlist under cursor."
   (interactive (list

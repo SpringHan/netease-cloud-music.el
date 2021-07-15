@@ -557,8 +557,7 @@ SONG-ID is the song's id for current lyric."
                (format "%S" (list song-name artist-name)))
      (eaf-call-sync "call_function" eaf--buffer-id "set_panel_song")
      (eaf-call-sync "call_function" eaf--buffer-id "update_play_status")
-     (eaf-call-sync "call_function_with_args" eaf--buffer-id
-                    "change_song_style" netease-cloud-music-playlist-song-index))))
+     (eaf--netease-cloud-music--update-song-style))))
 
 (defun netease-cloud-music-playlist-play ()
   "Play the playlist songs."
@@ -872,9 +871,14 @@ Optional argument INIT means init the lyrics list."
 
 (defun netease-cloud-music-adjust-song-index ()
   "Adjust the current song's index."
-  (let ((index (netease-cloud-music--current-song netease-cloud-music-current-song)))
+  (let ((index (when netease-cloud-music-current-song
+                 (netease-cloud-music--current-song netease-cloud-music-current-song))))
     (when index
-      (setq netease-cloud-music-playlist-song-index index))))
+      (setq netease-cloud-music-playlist-song-index index)
+      (netease-eaf
+       :eaf-buffer
+       (eaf-call-sync "call_function_with_args" eaf--buffer-id
+                      "change_song_style" netease-cloud-music-playlist-song-index)))))
 
 (defun netease-cloud-music-ask-play (song)
   "Play the SONG by asking."
@@ -1248,7 +1252,7 @@ PID is the id of the playlist, SONG-IDS is the list of songs' ids."
         (when (and netease-cloud-music-playlist-id
                    (= netease-cloud-music-playlist-id pid))
           (run-with-timer
-           1.5 nil #'(lambda ()
+           1 nil #'(lambda ()
                        (message "[Netease-Cloud-Music]: Syncing the playlist...")))
           (setq netease-cloud-music-playlist-refresh-timer
                 (run-with-timer
@@ -1276,7 +1280,7 @@ If ADD is t, add songs.Otherwise delete songs."
         (when (and netease-cloud-music-playlist-id
                    (= netease-cloud-music-playlist-id pid))
           (run-with-timer
-           1.5 nil #'(lambda ()
+           1 nil #'(lambda ()
                        (message "[Netease-Cloud-Music]: Syncing the playlist...")))
           (setq netease-cloud-music-playlist-refresh-timer
                 (run-with-timer
@@ -1312,7 +1316,7 @@ If ADD is t, add songs.Otherwise delete songs."
         (when (and netease-cloud-music-playlist-id
                    (= netease-cloud-music-playlist-id like-playlist))
           (run-with-timer
-           1.5 nil #'(lambda ()
+           1 nil #'(lambda ()
                        (message "[Netease-Cloud-Music]: Syncing the playlist...")))
           (setq netease-cloud-music-playlist-refresh-timer
                 (run-with-timer
@@ -1321,7 +1325,10 @@ If ADD is t, add songs.Otherwise delete songs."
 
 (defun netease-cloud-music--refersh-playlist-songs ()
   "Refersh the playlist songs."
-  (unless netease-cloud-music-use-local-playlist
+  (if netease-cloud-music-use-local-playlist
+      (when netease-cloud-music-playlist-refresh-timer
+        (cancel-timer netease-cloud-music-playlist-refresh-timer)
+        (setq netease-cloud-music-playlist-refresh-timer nil))
     (let ((songs (netease-cloud-music-get-playlist-songs
                   netease-cloud-music-playlist-id)))
       (unless (equal songs netease-cloud-music-playlists-songs)
@@ -1331,7 +1338,64 @@ If ADD is t, add songs.Otherwise delete songs."
           (cancel-timer netease-cloud-music-playlist-refresh-timer)
           (setq netease-cloud-music-playlist-refresh-timer nil))
         (netease-cloud-music-adjust-song-index)
-        (netease-cloud-music-tui-init)))))
+        (netease-cloud-music-tui-init)
+        (netease-eaf
+         :eaf-buffer
+         (eaf-setq eaf-netease-cloud-music-playlists-songs
+                   netease-cloud-music-playlists-songs)
+         (eaf-call-sync "call_function" eaf--buffer-id "set_playlist"))))))
+
+(defun netease-cloud-music-delete-song-from-playlist (&optional index)
+  "Delete current song from playlist. 
+INDEX is the song's index in playlist."
+  (interactive)
+  (let ((song (if index
+                  index
+                (netease-cloud-music--current-song)))
+        (current-line (line-number-at-pos)))
+    (when song
+      (if netease-cloud-music-use-local-playlist
+          (progn
+            (setq netease-cloud-music-playlist
+                  (delete (nth song netease-cloud-music-playlist)
+                          netease-cloud-music-playlist))
+            (netease-cloud-music-save-playlist))
+        (netease-cloud-music--track
+         nil netease-cloud-music-playlist-id
+         (car (nth song netease-cloud-music-playlists-songs))))
+      (netease-cloud-music-tui-init)
+      (when (get-buffer netease-cloud-music-buffer-name)
+        (with-current-buffer netease-cloud-music-buffer-name
+          (goto-char (point-min))
+          (forward-line (1- current-line))))
+      (netease-eaf
+       :eaf-buffer
+       (eaf-setq eaf-netease-cloud-music-playlist
+                 netease-cloud-music-playlist)
+       (eaf-call-sync "call_function" eaf--buffer-id "set_playlist")))))
+
+(defun netease-cloud-music-delete-playing-song ()
+  "Delete playing song."
+  (interactive)
+  (let ((current-song netease-cloud-music-current-song))
+    (if (null current-song)
+        (na-error "You're playing nothing!")
+      (netease-cloud-music-process-sentinel nil "killed")
+      (if netease-cloud-music-use-local-playlist
+          (progn
+            (setq netease-cloud-music-playlist
+                  (delete (nth
+                           (netease-cloud-music--current-song
+                            (format "%s - %s"
+                                    (car current-song)
+                                    (nth 1 current-song)))
+                           netease-cloud-music-playlist)
+                          netease-cloud-music-playlist))
+            (netease-cloud-music-save-playlist)
+            (netease-cloud-music-adjust-song-index))
+        (netease-cloud-music--track
+         nil netease-cloud-music-playlist-id
+         (nth 2 current-song))))))
 
 (provide 'netease-cloud-music)
 
