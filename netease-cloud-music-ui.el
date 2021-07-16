@@ -28,9 +28,6 @@
 
 ;;; This file is the TUI for client.
 
-(defvar netease-cloud-music-buffer-name "*Netease-Cloud-Music*"
-  "The name of Netease Music buffer.")
-
 (defvar netease-cloud-music-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map "g" 'netease-cloud-music-interface-init)
@@ -40,7 +37,9 @@
     (define-key map (kbd "RET") 'netease-cloud-music-play-song-at-point)
     (define-key map (kbd "TAB") 'netease-cloud-music-toggle-playlist-songs)
     (define-key map "c" 'netease-cloud-music-change-lyric-type)
-    (define-key map "C" 'netease-cloud-music-change-playlist-name)
+    (define-key map "M" 'netease-cloud-music-delete-playlist)
+    (define-key map "m" 'netease-cloud-music-change-playlist-name)
+    (define-key map "C" 'netease-cloud-music-create-playlist)
     (define-key map "s" 'netease-cloud-music-save-playlist)
     (define-key map "u" 'netease-cloud-music-get-playlist-by-uid)
     (define-key map "f" 'netease-cloud-music-search-song)
@@ -98,14 +97,12 @@
   :type 'keymap
   :group 'netease-cloud-music)
 
-(defcustom netease-cloud-music-write-mode-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "C-c C-c") 'netease-cloud-music-write-finish)
-    (define-key map (kbd "C-c C-k") 'netease-cloud-music-write-cancel)
-    map)
-  "The map for write mode."
-  :type 'keymap
-  :group 'netease-cloud-music)
+(defun netease-cloud-music-switch-previous ()
+  "Previous line or play all the songs current page."
+  (interactive)
+  (if (= 1 (line-number-at-pos))
+      (netease-cloud-music-switch-play-all)
+    (forward-line -1)))
 
 ;;;###autoload
 (define-derived-mode netease-cloud-music-mode nil "Netease-Cloud-Music"
@@ -136,75 +133,6 @@
   (interactive)
   (kill-buffer-and-window)) ; NOTE: Maybe will add new features.
 
-(defun netease-cloud-music-switch-previous ()
-  "Previous line or play all the songs current page."
-  (interactive)
-  (if (= 1 (line-number-at-pos))
-      (netease-cloud-music-switch-play-all)
-    (forward-line -1)))
-
-(defun netease-cloud-music-switch-enter ()
-  "The enter action in `netease-cloud-music-switch-mode'."
-  (interactive)
-  (with-current-buffer (current-buffer)
-    (let* ((content (substring-no-properties (thing-at-point 'line) 0 -1))
-           (song-info (progn
-                        (string-match "^<<\\(.*\\)>> - \\(.*\\)" content)
-                        (cons (match-string 1 content) (match-string 2 content))))
-           (song (car-safe song-info))
-           (artist (cdr-safe song-info))
-           song-list)
-      (if (not (and song artist))
-          (na-error "The song info of the song under cursor is error!")
-        (setq song-list (netease-cloud-music--get-song-list song artist))
-        (netease-cloud-music-switch-close)
-        (if netease-cloud-music-use-local-playlist
-            (progn
-              (add-to-list 'netease-cloud-music-playlist song-list)
-              (netease-cloud-music-save-playlist))
-          (netease-cloud-music--track t netease-cloud-music-playlist-id
-                                      (car song-list)))
-        (when (string= netease-cloud-music-repeat-mode "")
-          (setq netease-cloud-music-repeat-mode "song"))
-        (netease-cloud-music-play
-         (car-safe song-list)
-         song artist)))))
-
-(defun netease-cloud-music-switch-next-page ()
-  "Next page in switch mode."
-  (interactive)
-  (netease-cloud-music--page (1+ netease-cloud-music-search-page)))
-
-(defun netease-cloud-music-switch-prev-page ()
-  "Previous page in switch mode."
-  (interactive)
-  (unless (< netease-cloud-music-search-page 2)
-    (netease-cloud-music--page (1- netease-cloud-music-search-page))))
-
-(defun netease-cloud-music--page (page)
-  "Goto the PAGE."
-  (when netease-cloud-music-search-alist
-    (let* ((search-content (car netease-cloud-music-search-alist))
-           (limit (* netease-cloud-music-search-limit page))
-           (mode (if (eq major-mode 'netease-cloud-music-switch-song-mode)
-                     (cons nil 'netease-cloud-music-get-song)
-                   (cons 'playlist 'netease-cloud-music-get-playlists)))
-           (data (netease-cloud-music-request-from-api
-                  search-content
-                  (car mode)
-                  limit))
-           (search-results
-            (netease-cloud-music--catch
-             limit
-             (funcall (cdr mode) data))))
-      (if (eq (car mode) 'playlist)
-          (netease-cloud-music-playlist--open-switch search-results)
-        (netease-cloud-music-search-song--open-switch
-         search-results))
-      (setq netease-cloud-music-search-page page
-            netease-cloud-music-search-alist
-            (cons search-content search-results)))))
-
 (defun netease-cloud-music-switch-play-all ()
   "Play all the songs in the search list."
   (interactive)
@@ -233,143 +161,6 @@
     (netease-cloud-music-playlist-play)
     (netease-cloud-music-save-playlist)
     (netease-cloud-music-switch-close)))
-
-(defun netease-cloud-music-switch-add-to-playlist ()
-  "Add the songs in current page to playlist."
-  (interactive)
-  (if netease-cloud-music-use-local-playlist
-      (progn
-        (netease-cloud-music--append (cdr netease-cloud-music-search-alist))
-        (netease-cloud-music-save-playlist))
-    (let (ids)
-      (dolist (song (cdr netease-cloud-music-search-alist))
-        (unless (alist-get (car song) netease-cloud-music-playlists-songs)
-          (setq ids (append ids (list (car song))))))
-      (netease-cloud-music--track t netease-cloud-music-playlist-id ids)))
-  (netease-cloud-music-switch-close)
-  (netease-cloud-music-interface-init))
-
-(defun netease-cloud-music-switch-add-page (page)
-  "Add the pages to playlist."
-  (interactive
-   (list
-    (read-string "Enter the page[n-n]: "
-                 (concat (number-to-string netease-cloud-music-search-page)
-                         "-"))))
-  (if netease-cloud-music-use-local-playlist
-      (progn
-        (netease-cloud-music--append (netease-cloud-music--songs-by-page page))
-        (netease-cloud-music-save-playlist))
-    (let (ids)
-      (dolist (song (netease-cloud-music--songs-by-page page))
-        (unless (alist-get (car song) netease-cloud-music-playlists-songs)
-          (setq ids (append ids (list (car song))))))
-      (netease-cloud-music--track t netease-cloud-music-playlist-id ids)))
-  (netease-cloud-music-switch-close)
-  (netease-cloud-music-interface-init))
-
-(defun netease-cloud-music-playlist-enter ()
-  "Add the playlist under the cursor."
-  (interactive)
-  (let ((playlist (alist-get
-                   (substring (thing-at-point 'line) 0 -1)
-                   netease-cloud-music-search-playlists nil nil 'string-equal))
-        ids)
-    (if (null playlist)
-        (na-error "The playlist can not found!")
-      (if netease-cloud-music-use-local-playlist
-          (progn
-            (netease-cloud-music--append (netease-cloud-music-get-playlist-songs playlist))
-            (netease-cloud-music-save-playlist))
-        (dolist (song (netease-cloud-music-get-playlist-songs playlist))
-          (unless (alist-get (car song) netease-cloud-music-playlists-songs)
-            (setq ids (append ids (car song)))))
-        (netease-cloud-music--track t netease-cloud-music-playlist-id ids))
-      (netease-cloud-music-switch-close)
-      (netease-cloud-music-interface-init))))
-
-;;;###autoload
-(define-derived-mode netease-cloud-music-write-mode text-mode "Netease-Cloud-Music:Write"
-  "The write mode for `netease-cloud-music'."
-  :group 'netease-cloud-music
-  :syntax-table nil
-  :abbrev-table nil
-  (netease-cloud-music-interface-init)
-  (setq buffer-read-only nil)
-  (if netease-cloud-music-use-local-playlist
-      (progn
-       (goto-char (point-max))
-       (search-backward "Local Playlist:")
-       (forward-line)
-       (narrow-to-region (point) (point-max)))
-
-    (goto-char (point-min))             ;Get the position of the playlist
-    (search-forward
-     (car (netease-cloud-music-alist-cdr
-           netease-cloud-music-playlist-id netease-cloud-music-playlists))
-     nil t)
-    (forward-line)
-    (let ((start (line-beginning-position)))
-      (while (eq (get-text-property (point) 'face) 'font-lock-keyword-face)
-        (forward-line))
-      (forward-line -1)
-      (narrow-to-region start (line-end-position))
-      (goto-char (point-min))))
-  (when netease-cloud-music-show-lyric
-    (with-current-buffer netease-cloud-music-buffer-name
-      (netease-cloud-music-add-header-lyrics))))
-
-(defun netease-cloud-music-write-cancel ()
-  "Cancel and turn to normal mode."
-  (interactive)
-  (netease-cloud-music-mode)
-  (netease-cloud-music-interface-init)
-  (when netease-cloud-music-show-lyric
-    (with-current-buffer netease-cloud-music-buffer-name
-      (netease-cloud-music-add-header-lyrics))))
-
-(defun netease-cloud-music--deleted-item (list)
-  "Check the delete item in LIST. For playlist."
-  (let (result)
-    (dolist (song netease-cloud-music-playlists-songs)
-      (unless (memq (car song) list)
-        (setq result (append result (list (car song))))))
-    result))
-
-(defun netease-cloud-music-write-finish ()
-  "Modify by the modified contents and turn to normal mode."
-  (interactive)
-  (let (current-song song-name copy deleted)
-    (with-current-buffer netease-cloud-music-buffer-name
-      (goto-char (point-min))
-      (while (not (eobp))
-        (setq current-song (netease-cloud-music--current-song))
-        (when current-song
-          (setq current-song (nth current-song
-                                  (if netease-cloud-music-use-local-playlist
-                                      netease-cloud-music-playlist
-                                    netease-cloud-music-playlists-songs)))
-          (setq copy
-                (append copy (list (if netease-cloud-music-use-local-playlist
-                                       current-song
-                                     (car current-song))))))
-        (forward-line))
-      (if (not (eobp))
-          (progn
-            (netease-cloud-music-write-cancel)
-            (na-error "There's an error when save the result!"))
-        (if netease-cloud-music-use-local-playlist
-            (progn
-              (setq netease-cloud-music-playlist copy)
-              (netease-cloud-music-save-playlist))
-          (netease-cloud-music-update-songs-order-in-playlist
-           netease-cloud-music-playlist-id copy)
-
-          (when (setq deleted (netease-cloud-music--deleted-item copy))
-            (netease-cloud-music--track nil netease-cloud-music-playlist-id deleted)))
-
-        (netease-cloud-music-write-cancel)
-        (netease-cloud-music-adjust-song-index)))))
 
 (defun netease-cloud-music-play-song-at-point ()
   "Play the song at point."
@@ -473,26 +264,6 @@
       (insert (format "%s\n" (car playlist))))
     (setq buffer-read-only t)
     (goto-char (point-min))))
-
-(defun netease-cloud-music-playlist-add-all ()
-  "Add all the searched playlists to the playlist"
-  (interactive)
-  (if (null netease-cloud-music-search-playlists)
-      (na-error "The playlist can not found!")
-    (let (ids)                          ;For user's playlist
-      (dolist (playlist netease-cloud-music-search-playlists)
-        (if netease-cloud-music-use-local-playlist
-            (progn
-              (netease-cloud-music--append
-               (netease-cloud-music-get-playlist-songs (cdr playlist)))
-              (netease-cloud-music-save-playlist))
-          (dolist (song (netease-cloud-music-get-playlist-songs (cdr playlist)))
-            (unless (alist-get (car song) netease-cloud-music-playlists-songs)
-              (setq ids (append ids (car song)))))))
-      (when ids
-        (netease-cloud-music--track t netease-cloud-music-playlist-id ids)))
-    (netease-cloud-music-switch-close)
-    (netease-cloud-music-interface-init)))
 
 (defun netease-cloud-music-interface-init (&optional content type)
   "Initialize the Netease Music buffer interface.
@@ -702,21 +473,6 @@ MOVE means do not care about the cursor's position."
                          netease-cloud-music-playlists-songs
                          (netease-cloud-music-get-playlist-songs
                           netease-cloud-music-playlist-id))))))))))
-
-(defun netease-cloud-music-change-playlist-name (pid name)
-  "Change the playlist's name under cursor."
-  (interactive
-   (let ((playlist (buffer-substring-no-properties
-                    (line-beginning-position)
-                    (line-end-position)))
-         id)
-     (if (setq id (alist-get playlist
-                             netease-cloud-music-playlists
-                             nil nil 'string-equal))
-         (list id (read-string "Enter the new name: "))
-       (na-error "The playlist is not exists!"))))
-  (netease-cloud-music-update-playlist-name pid name)
-  (netease-cloud-music-interface-init))
 
 (provide 'netease-cloud-music-ui)
 
