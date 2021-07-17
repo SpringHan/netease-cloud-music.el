@@ -1316,10 +1316,12 @@ NO-ERROR means to close error signal."
   (netease-cloud-music-stop-api)
   (netease-cloud-music-start-api))
 
-(na-defun netease-cloud-music-login (phone password)
+(na-defun netease-cloud-music-login (&optional phone password)
   "Login with PHONE number and PASSWORD."
-  (interactive (list (read-string "Phone number(Countrycode[Space]number): " "+86 ")
-                     (md5 (read-passwd "Password: "))))
+  (interactive)
+  (unless phone
+    (setq phone (read-string "Phone number(Countrycode[Space]number): " "+86 ")
+          password (md5 (read-passwd "Password: "))))
   (if (not (netease-cloud-music-api-process-live-p))
       (na-error "API process is null!")
     (let ((countrycode (prog2 (string-match "\\(.*\\) \\(.*\\)" phone)
@@ -1350,7 +1352,8 @@ NO-ERROR means to close error signal."
                    (format "%S" (list netease-cloud-music-username
                                       (alist-get 'avatarUrl
                                                  (alist-get 'profile login-result)))))
-         (eaf-call-sync "call_function" eaf--buffer-id "update_user_info"))))))
+         (eaf-call-sync "call_function" eaf--buffer-id "update_user_info"))
+        (netease-cloud-music--refresh-playlists)))))
 
 (na-defun netease-cloud-music--song-url-by-user (id)
   "Get the song's url by user.
@@ -1400,9 +1403,7 @@ ID is the song's id."
     (setq name (read-string "Enter the playlist's name: ")))
   (let ((new-playlist (netease-api-request
                        (concat "playlist/create?name="
-                               (netease-cloud-music-encode-url
-                                (base64-encode-string
-                                 (encode-coding-string name 'utf-8)))))))
+                               (url-encode-url name)))))
     (if (or (null new-playlist) (/= 200 (alist-get 'code new-playlist)))
         (na-error "Failed to create new playlist!")
       (run-with-timer
