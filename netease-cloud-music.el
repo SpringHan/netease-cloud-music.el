@@ -449,7 +449,8 @@ Otherwise return nil."
    (eaf-setq eaf-netease-cloud-music-play-status "")
    (eaf-setq eaf-netease-cloud-music-current-song "(\"\" \"\")")
    (eaf-call-sync "call_function" eaf--buffer-id "set_panel_song")
-   (eaf-call-sync "call_function" eaf--buffer-id "update_play_status")
+   (eaf-call-sync "call_function_with_args" eaf--buffer-id
+                  "update_play_status" "")
    (eaf-call-sync "call_function_with_args" eaf--buffer-id
                   "change_song_style" -1)))
 
@@ -695,7 +696,8 @@ SONG-ID is the song's id for current lyric."
                (format "%S" (list song-name artist-name)))
      (eaf-call-sync "call_function_with_args" eaf--buffer-id
                     "set_panel_song" song-name artist-name)
-     (eaf-call-sync "call_function" eaf--buffer-id "update_play_status")
+     (eaf-call-sync "call_function_with_args" eaf--buffer-id
+                    "update_play_status" "playing")
      (eaf--netease-cloud-music--update-song-style))))
 
 (defun netease-cloud-music-playlist-play ()
@@ -799,7 +801,10 @@ PROCESS is the process, EVENT is the event trigger sentinel."
                (if (string= netease-cloud-music-process-status "paused")
                    "paused"
                  "playing"))
-     (eaf-call-sync "call_function" eaf--buffer-id "update_play_status"))))
+     (eaf-call-sync "call_function_with-args" eaf--buffer-id
+                    "update_play_status" (if (string= netease-cloud-music-process-status "paused")
+                                             "paused"
+                                           "playing")))))
 
 (defun netease-cloud-music-kill-current-song (&optional force)
   "Kill the current song.
@@ -1394,7 +1399,9 @@ ID is the song's id."
     (setq name (read-string "Enter the playlist's name: ")))
   (let ((new-playlist (netease-api-request
                        (concat "playlist/create?name="
-                               (decode-coding-string name 'utf-8)))))
+                               (netease-cloud-music-encode-url
+                                (base64-encode-string
+                                 (encode-coding-string name 'utf-8)))))))
     (if (or (null new-playlist) (/= 200 (alist-get 'code new-playlist)))
         (na-error "Failed to create new playlist!")
       (run-with-timer
@@ -1406,11 +1413,21 @@ ID is the song's id."
   "Delete the user's playlist which named NAME."
   (interactive)
   (unless name
-    (setq name (completing-read "Enter the playlist you want to delete: "
-                                (netease-cloud-music-delete--list-playlist))))
-  (let ((id (progn
-              (string-match "^\\(.*\\) - \\(.*\\)" name)
-              (match-string 2 name)))
+    (setq name (if (get-buffer netease-cloud-music-buffer-name)
+                   (completing-read "Enter the playlist you want to delete: "
+                                    (netease-cloud-music-delete--list-playlist))
+                 (netease-eaf
+                  :eaf-buffer
+                  (prog2 (eaf-call-sync "call_function_with_args" eaf--buffer-id
+                                        "set_index_style" "true")
+                      (- (read-number "Enter the playlist's index: ") 2)
+                    (eaf-call-sync "call_function_with_args" eaf--buffer-id
+                                   "set_index_style" "false"))))))
+  (let ((id (if (get-buffer netease-cloud-music-buffer-name)
+                (progn
+                  (string-match "^\\(.*\\) - \\(.*\\)" name)
+                  (match-string 2 name))
+              (number-to-string (cdr (nth name netease-cloud-music-playlists)))))
         playlist-name result)
     (if (not (stringp id))
         (na-error "The playlist is not exists!")
@@ -1452,7 +1469,11 @@ ID is the song's id."
         (na-error "The playlist is not exists!")
       (setq result (netease-api-request
                     (format "playlist/name/update?id=%d&name=%s"
-                            id (netease-cloud-music-encode-url name))))
+                            id
+                            (netease-cloud-music-encode-url
+                             (base64-encode-string
+                              (encode-coding-string
+                               name 'utf-8))))))
       (if (or (null result) (/= 200 (alist-get 'code result)))
           (na-error "Failed to update the name of the playlist!")
         (run-with-timer
