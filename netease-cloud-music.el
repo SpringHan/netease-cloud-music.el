@@ -1126,16 +1126,17 @@ If HINT is not non-nil, show the hint message."
 
 (defun netease-cloud-music-get-playlist ()
   "Set the playlist to the one which saved in the cache file."
-  (let ((playlist (with-temp-buffer
-                    (insert-file-contents netease-cloud-music-playlist-file)
-                    (buffer-substring-no-properties (point-min) (point-max)))))
-    (setq netease-cloud-music-playlist (car (read-from-string playlist)))
-    (netease-eaf
-     :eaf-buffer
-     (eaf-setq eaf-netease-cloud-music-playlist netease-cloud-music-playlist)
-     (when netease-cloud-music-use-local-playlist
-       (eaf-call-sync "call_function_with_args" eaf--buffer-id
-                      "set_playlist" (format "%S" netease-cloud-music-playlist))))))
+  (when (file-exists-p netease-cloud-music-playlist-file)
+    (let ((playlist (with-temp-buffer
+                      (insert-file-contents netease-cloud-music-playlist-file)
+                      (buffer-substring-no-properties (point-min) (point-max)))))
+      (setq netease-cloud-music-playlist (car (read-from-string playlist)))
+      (netease-eaf
+       :eaf-buffer
+       (eaf-setq eaf-netease-cloud-music-playlist netease-cloud-music-playlist)
+       (when netease-cloud-music-use-local-playlist
+         (eaf-call-sync "call_function_with_args" eaf--buffer-id
+                        "set_playlist" (format "%S" netease-cloud-music-playlist)))))))
 
 (defun netease-cloud-music-search-playlist (&optional name)
   "Fetch the playlist by NAME."
