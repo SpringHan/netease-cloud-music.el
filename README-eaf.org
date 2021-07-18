@@ -1,0 +1,111 @@
+* 网易云音乐
+  网易云音乐是一个可以让你在 Emacs 里听音乐的插件 (请认真看完本文档，本文档为 EAF 端文档)
+  [[file:./README.org][TUI端文档]]
+
+  [[./demo.png]]
+** 依赖
+   - ~mpv~ 或者其他能够播放在线音乐、快进快退、暂停歌曲的播放器
+
+     这是一个播放歌曲的播放器
+     如果你是一名 Arch 用户, 你可以用这条命令安装它: ~sudo pacman -S mplayer~
+   - ~request~
+
+     这是一个 Emacs 包裹, 你能用 ~M-x package-install RET request RET~ 安装它
+   - ~socat~
+     
+     这是一个与进程有关的程序，如果你使用 ~mpv~ 作为播放器，你就必须安装这个软件。
+** 安装
+   1. 克隆此仓库
+      #+begin_src shell
+        git clone https://github.com/SpringHan/netease-cloud-music.el.git ~/.emacs.d/ --depth=1
+      #+end_src
+   2. 添加至 ~init.el~:
+      #+begin_src emacs-lisp
+        ;; Add it to load path
+        (add-to-list 'load-path "/path/to/netease-cloud-music.el")
+
+        ;; Require it
+        (require 'netease-cloud-music)
+        (require 'netease-cloud-music-ui)       ;If you want to use the default TUI, you should add this line in your configuration.
+      #+end_src
+** 快捷键
+   | 快捷键 | 功能                                    |
+   |--------+-----------------------------------------|
+   | g      | 取消搜索音乐或歌单                      |
+   | s      | 选择歌单                                |
+   | d      | 删除歌曲                                |
+   | w      | 进入编辑模式                            |
+   | /      | 播放歌曲                                |
+   | <up>   | 将歌曲向上移动                          |
+   | <down> | 将歌曲向下移动                          |
+   | r      | 更改repeat mode                         |
+   | d      | 将歌曲从列表删除                        |
+   | f      | 搜索歌曲                                |
+   | F      | 搜索歌单                                |
+   | P      | 播放播放列表中的所有歌曲                |
+   | p      | 上一首                                  |
+   | n      | 下一首                                  |
+   | N      | 随机播放下一首                          |
+   | x      | 停止当前歌曲                            |
+   | c      | 切换歌词模式 (原歌词、双语歌词、无歌词) |
+   | C      | 创建用户歌单                            |
+   | m      | 更改歌单名称                            |
+   | M      | 删除用户歌单                            |
+   | k      | 清空当前歌单                            |
+   | l      | 登陆                                    |
+   | a      | 将搜索歌曲或歌曲一整页加入当前歌单      |
+   | A      | 以页数为单位将搜索的歌曲加入到当前歌单  |
+   | >      | 快进                                    |
+   | <      | 快退                                    |
+   | RET    | 将歌曲添加到歌单                        |
+   | SPC    | 暂停或继续当前歌曲                      |
+   | q      | 返回打开网易云音乐前的 buffer           |
+   | Q      | 退出网易云音乐                          |
+   | C-n    | 将页面向上滑动                          |
+   | C-p    | 将页面向下滑动                          |
+   | M-v    | 以一页为单位向上滑动                    |
+   | M-V    | 以一页为单位向下滑动                    |
+   | M-<    | 到歌单顶部                              |
+   | M->    | 到歌单尾部                              |
+   | M-f    | 查看搜索的歌单或者歌曲的下一页          |
+   | M-b    | 查看搜索的歌单或者歌曲的上一页          |
+   | M-n    | 将用户歌单上滑                          |
+   | M-p    | 将用户歌单下滑                          |
+** 编辑模式快捷键
+   | 快捷键  | 功能     |
+   | C-c C-c | 保存更改 |
+   | C-c C-k | 取消更改 |
+** 函数
+   - ~eaf-open-netease-cloud-music~
+
+     可通过此函数打开网易云音乐buffer。如果已经打开，则跳转到网易云音乐buffer。
+
+   - ~netease-cloud-music-change-repeat-mode~
+
+     可通过此函数开启关闭循环模式。
+** 变量
+   - ~netease-cloud-music-player-command~ (list)
+
+     这个函数的值包括：播放器的命令、继续播放的进程信息、停止播放的进程信息、快进进程信息、快退进程信息。
+
+     默认值： ~'("mpv" "pause\n" "seek 5" "seek -5")~
+     
+     更多可用的命令[[https://github.com/SpringHan/netease-cloud-music.el/issues/3][见这里]].
+
+     如果你使用 ~mplayer~ 作为你的音乐播放器，那么你不需要花时间配置这个变量。
+
+     提示：你可以在快进快退的进程信息里定义它的秒数，下面是个例子：
+
+     #+begin_src emacs-lisp
+       (setq netease-cloud-music-player-command '("mpv" "pause\n" "seek 5" "seek -5"))
+     #+end_src
+
+   - ~netease-cloud-music-buffer-name~ (String)
+
+     你可以通过改变这个变量的值从而设置网易云音乐的buffer。默认值：~"*Netease-Cloud-Music*"~
+
+** 注意
+   1. 本客户端初次启动歌单空是正常情况，添加歌曲或者登陆之后便有歌曲可听。
+   2. 本客户端用户功能等需要用到第三方 API ，如果没有此需求可以不下载。若要下载则使用 ~(netease-cloud-music-donwload-api)~ 进行下载。
+   3. 本客户端登陆时密码会自动使用 MD5 加密，初次登陆后手机号和密码信息会储存在本地缓存文件，下一次直接自动登陆。
+   4. 在添加歌曲到用户歌单后，同步远程的歌单可能需要时间，这为正常现象。

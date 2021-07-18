@@ -801,7 +801,7 @@ PROCESS is the process, EVENT is the event trigger sentinel."
                (if (string= netease-cloud-music-process-status "paused")
                    "paused"
                  "playing"))
-     (eaf-call-sync "call_function_with-args" eaf--buffer-id
+     (eaf-call-sync "call_function_with_args" eaf--buffer-id
                     "update_play_status" (if (string= netease-cloud-music-process-status "paused")
                                              "paused"
                                            "playing")))))
@@ -1651,26 +1651,28 @@ If ADD is t, add songs.Otherwise delete songs."
   "Delete current song from playlist. 
 INDEX is the song's index in playlist."
   (interactive)
-  (let ((song (if index
-                  index
-                (netease-cloud-music--current-song)))
-        (current-line (line-number-at-pos)))
-    (when song
-      (if netease-cloud-music-use-local-playlist
-          (progn
-            (setq netease-cloud-music-playlist
-                  (delete (nth song netease-cloud-music-playlist)
-                          netease-cloud-music-playlist))
-            (netease-cloud-music-save-playlist)
-            (netease-cloud-music-adjust-song-index))
-        (netease-cloud-music--track
-         nil netease-cloud-music-playlist-id
-         (car (nth song netease-cloud-music-playlists-songs))))
-      (netease-cloud-music-tui-init)
-      (when (get-buffer netease-cloud-music-buffer-name)
-        (with-current-buffer netease-cloud-music-buffer-name
-          (goto-char (point-min))
-          (forward-line (1- current-line)))))))
+  (when (or (null index)
+            (yes-or-no-p "Do you really want to delete the song? "))
+    (let ((song (if index
+                    index
+                  (netease-cloud-music--current-song)))
+          (current-line (line-number-at-pos)))
+      (when song
+        (if netease-cloud-music-use-local-playlist
+            (progn
+              (setq netease-cloud-music-playlist
+                    (delete (nth song netease-cloud-music-playlist)
+                            netease-cloud-music-playlist))
+              (netease-cloud-music-save-playlist)
+              (netease-cloud-music-adjust-song-index))
+          (netease-cloud-music--track
+           nil netease-cloud-music-playlist-id
+           (car (nth song netease-cloud-music-playlists-songs))))
+        (netease-cloud-music-tui-init)
+        (when (get-buffer netease-cloud-music-buffer-name)
+          (with-current-buffer netease-cloud-music-buffer-name
+            (goto-char (point-min))
+            (forward-line (1- current-line))))))))
 
 (defun netease-cloud-music-delete-playing-song ()
   "Delete playing song."

@@ -58,7 +58,7 @@
     (define-key map "R" 'netease-cloud-music-change-order)
     (define-key map "w" 'netease-cloud-music-write-mode)
     (define-key map "l" 'netease-cloud-music-login)
-    (define-key map "L" 'netease-cloud-music-like-song)
+    ;; (define-key map "L" 'netease-cloud-music-like-song)
     (define-key map "/" 'netease-cloud-music-ask-play)
     (define-key map (kbd "<down>") 'netease-cloud-music-move-down)
     (define-key map (kbd "<up>") 'netease-cloud-music-move-up)
