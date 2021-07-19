@@ -157,6 +157,11 @@ It will be cloned into `netease-cloud-music-api-dir' if `netease-cloud-music-api
   :type 'list
   :group 'netease-cloud-music)
 
+(defcustom netease-cloud-music-storage nil
+  "Storage songs."
+  :type 'list
+  :group 'netease-cloud-music)
+
 (defcustom netease-cloud-music-playlist-refresh-timer nil
   "The timer to refresh playlist."
   :type 'timer
@@ -1727,7 +1732,7 @@ If ADD is t, add songs.Otherwise delete songs."
   "Delete current song from playlist. 
 INDEX is the song's index in playlist."
   (interactive)
-  (when (or (null index)
+  (when (or index
             (yes-or-no-p "Do you really want to delete the song? "))
     (let ((song (if index
                     index
@@ -1987,6 +1992,72 @@ INDEX is the index of the playlist in search list."
                     "change_playlist_mode" "false")
      (eaf-call-sync "call_function" eaf--buffer-id "set_playlist")
      (netease-cloud-music-adjust-song-index)))))
+
+(defun netease-cloud-music-storage-song (&optional song)
+  "Storage the song under cursor or with its index."
+  (interactive)
+  (unless song
+    (setq song (if (get-buffer netease-cloud-music-buffer-name)
+                   (netease-cloud-music--current-song)
+                 (nth (1- (read-number "Enter the song's index: "))
+                      (if netease-cloud-music-use-local-playlist
+                          netease-cloud-music-playlist
+                        netease-cloud-music-playlists-songs)))))
+  (unless (netease-cloud-music--memeq song netease-cloud-music-storage)
+    (setq netease-cloud-music-storage
+          (append netease-cloud-music-storage
+                  (list song)))
+    (message "[Netease-Cloud-Music]: Added the song into storage.")))
+
+(defun netease-cloud-music-add-storage-to-current-playlist ()
+  "Add the songs in storage into current playlist."
+  (interactive)
+  (if (null netease-cloud-music-storage)
+      (na-error "The storage is empty!")
+    (if netease-cloud-music-use-local-playlist
+        (progn
+          (netease-cloud-music--append netease-cloud-music-storage)
+          (netease-cloud-music-save-playlist))
+      (let (ids)
+        (dolist (song netease-cloud-music-storage)
+          (setq ids (append ids (list song))))
+        (netease-cloud-music--track t netease-cloud-music-playlist-id ids)))
+    (if (get-buffer netease-cloud-music-buffer-name)
+        (progn
+          (netease-cloud-music-interface-init))
+      (netease-eaf
+       :eaf-buffer
+       (if netease-cloud-music-use-local-playlist
+           (eaf-setq eaf-netease-cloud-music-playlist
+                     netease-cloud-music-playlist)
+         (eaf-setq eaf-netease-cloud-music-playlists-songs
+                   netease-cloud-music-playlists-songs))
+       (eaf-call-sync "call_function" eaf--buffer-id "set_playlist")
+       (netease-cloud-music-adjust-song-index)))))
+
+(defun netease-cloud-music-show-storage ()
+  "Show the songs in storage."
+  (interactive)
+  (if (null netease-cloud-music-storage)
+      (message "[Netease-Cloud-Music]: Storage is empty.")
+    (if (get-buffer netease-cloud-music-buffer-name)
+        (netease-cloud-music-search-song--open-switch
+         netease-cloud-music-storage)
+      (netease-eaf
+       :eaf-buffer
+       (eaf-call-sync "call_function_with_args" eaf--buffer-id
+                      "change_song_style" -1)
+       (eaf-call-sync "call_function_with_args" eaf--buffer-id
+                      "set_playlist"
+                      (format "%S" netease-cloud-music-storage))
+       (eaf-call-sync "call_function_with_args" eaf--buffer-id
+                      "change_playlist_mode" "true")))))
+
+(defun netease-cloud-music-clear-storage ()
+  "Clear the storage."
+  (interactive)
+  (when (yes-or-no-p "Do you really want to clear storage?")
+    (setq netease-cloud-music-storage nil)))
 
 (provide 'netease-cloud-music)
 
