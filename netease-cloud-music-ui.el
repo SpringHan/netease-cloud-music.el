@@ -28,6 +28,51 @@
 
 ;;; This file is the TUI for client.
 
+(defface netease-cloud-music-head-title-face
+  '((t :height 1.1 :foreground "Red3"))
+  "The head title face."
+  :group 'netease-cloud-music)
+
+(defface netease-cloud-music-user-name-face
+  '((t :inherit font-lock-constant-face :weight bold))
+  "The username face."
+  :group 'netease-cloud-music)
+
+(defface netease-cloud-music-repeat-face
+  '((t :foreground "DeepSkyBlue"))
+  "The repeat title face."
+  :group 'netease-cloud-music)
+
+(defface netease-cloud-music-repeat-mode-face
+  '((t :foreground "LightPink" :weight bold))
+  "The repeat mode face."
+  :group 'netease-cloud-music)
+
+(defface netease-cloud-music-current-song-title-face
+  '((t :height 0.9 :weight bold))
+  "The current song title face."
+  :group 'netease-cloud-music)
+
+(defface netease-cloud-music-playing-song-face
+  '((t :height 1.0 :foreground "MediumSpringGreen"))
+  "The playing song face."
+  :group 'netease-cloud-music)
+
+(defface netease-cloud-music-play-status-face
+  '((t :foreground "OrangeRed"))
+  "The play status face."
+  :group 'netease-cloud-music)
+
+(defface netease-cloud-music-playlists-face
+  '((t :height 1.05 :foreground "gold2"))
+  "The playlists face."
+  :group 'netease-cloud-music)
+
+(defface netease-cloud-music-playlist-face
+  '((t :inherit font-lock-warning-face :weight bold))
+  "The playlist face."
+  :group 'netease-cloud-music)
+
 (defvar netease-cloud-music-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map "g" 'netease-cloud-music-interface-init)
@@ -58,7 +103,8 @@
     (define-key map "R" 'netease-cloud-music-change-order)
     (define-key map "w" 'netease-cloud-music-write-mode)
     (define-key map "l" 'netease-cloud-music-login)
-    ;; (define-key map "L" 'netease-cloud-music-like-song)
+    (define-key map "e" 'netease-cloud-music-get-recommend-songs)
+    (define-key map "E" 'netease-cloud-music-get-recommend-playlists)
     (define-key map "/" 'netease-cloud-music-ask-play)
     (define-key map (kbd "<down>") 'netease-cloud-music-move-down)
     (define-key map (kbd "<up>") 'netease-cloud-music-move-up)
@@ -241,9 +287,9 @@
           (end (propertize ">>" 'face 'font-lock-comment-face)))
       (mapc #'(lambda (s)
                 (insert prefix
-                        (propertize (nth 1 s) 'face 'font-lock-keyword-face)
+                        (propertize (nth 1 s) 'face 'netease-cloud-music-song-face)
                         end " - "
-                        (propertize (nth 3 s) 'face 'font-lock-function-name-face)
+                        (propertize (nth 3 s) 'face 'netease-cloud-music-artist-face)
                         "\n"))
             (if (listp (car-safe songs-info))
                 songs-info
@@ -283,42 +329,42 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
       (erase-buffer)
       (insert (propertize
                "Netease Cloud Music - 网易云音乐\n"
-               'face '(:height 1.1 :foreground "Red3")))
+               'face 'netease-cloud-music-head-title-face))
       (when netease-cloud-music-username ;Show user name
         (insert "你好，"
                 (propertize netease-cloud-music-username
-                            'face '(:inherit font-lock-constant-face :weight bold)) "\n"))
+                            'face 'netease-cloud-music-user-name-face) "\n"))
       ;; Show the repeat mode status
       (insert (concat
                (propertize "Repeat: "
-                           'face '(:foreground "DeepSkyBlue"))
+                           'face 'netease-cloud-music-repeat-face)
                (propertize (concat (upcase netease-cloud-music-repeat-mode) "\n")
-                           'face '(:foreground "LightPink" :weight bold))))
+                           'face 'netease-cloud-music-repeat-mode-face)))
       ;; When the type is song, insert the current song info.
       (when (not (null netease-cloud-music-current-song))
         (insert "\n")
         (insert (concat
                  (propertize
                   "Current song: "
-                  'face '(:height 0.9 :weight bold))
+                  'face 'netease-cloud-music-current-song-title-face)
                  (propertize (format
                               "%s - %s"
                               (car netease-cloud-music-current-song)
                               (nth 1 netease-cloud-music-current-song))
-                             'face '(:height 1.0 :foreground "MediumSpringGreen"))
+                             'face 'netease-cloud-music-playing-song-face)
                  (if (string= netease-cloud-music-process-status "playing")
                      (propertize " [Playing]\n"
-                                 'face '(:foreground "OrangeRed"))
+                                 'face 'netease-cloud-music-play-status-face)
                    (propertize " [Paused]\n"
-                               'face '(:foreground "OrangeRed"))))))
+                               'face 'netease-cloud-music-play-status-face)))))
 
       ;; User's Playlist
       (when netease-cloud-music-playlists
         (insert (propertize "\nUser's Playlists:\n"
-                            'face '(:height 1.05 :foreground "gold2")))
+                            'face 'netease-cloud-music-playlists-face))
         (dolist (playlist netease-cloud-music-playlists)
           (insert (propertize (car playlist)
-                              'face '(:inherit font-lock-warning-face :weight bold))
+                              'face 'netease-cloud-music-playlist-face)
                   "\n")
           (when (and netease-cloud-music-playlist-id
                      (= netease-cloud-music-playlist-id (cdr playlist)))
@@ -326,24 +372,24 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
                       (insert (format "%s - %s\n"
                                       (propertize
                                        (nth 1 s)
-                                       'face 'font-lock-keyword-face)
+                                       'face 'netease-cloud-music-song-face)
                                       (propertize
                                        (nth 3 s)
-                                       'face 'font-lock-function-name-face))))
+                                       'face 'netease-cloud-music-artist-face))))
                   netease-cloud-music-playlists-songs))))
 
       ;; Local Playlist
       (when netease-cloud-music-playlist
         (insert (propertize "\nLocal Playlist:\n"
-                            'face '(:height 1.05 :foreground "gold2")))
+                            'face 'netease-cloud-music-playlists-face))
         (mapc #'(lambda (s)
                   (insert (format "%s - %s\n"
                                   (propertize
                                    (nth 1 s)
-                                   'face 'font-lock-keyword-face)
+                                   'face 'netease-cloud-music-song-face)
                                   (propertize
                                    (nth 3 s)
-                                   'face 'font-lock-function-name-face))))
+                                   'face 'netease-cloud-music-artist-face))))
               netease-cloud-music-playlist))
       (setq buffer-read-only t)
       (goto-char (point-min))
@@ -366,12 +412,13 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
     (save-mark-and-excursion
       (forward-line)                    ;To check the next line if it's a null string or songs' info.
       (if (not (or (equal (get-text-property (point) 'face)
-                          '(:inherit font-lock-warning-face :weight bold))
+                          'netease-cloud-music-playlist-face)
                    (string-empty-p (buffer-substring-no-properties
                                     (line-beginning-position)
                                     (line-end-position)))))
           (progn
-            (while (eq (get-text-property (point) 'face) 'font-lock-keyword-face)
+            (while (eq (get-text-property (point) 'face)
+                       'netease-cloud-music-song-face)
               (delete-region (line-beginning-position) (line-end-position))
               (delete-char 1)))
         (forward-line -1)
@@ -384,10 +431,10 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
                    (insert (format "%s - %s\n"
                                    (propertize
                                     (nth 1 song)
-                                    'face 'font-lock-keyword-face)
+                                    'face 'netease-cloud-music-song-face)
                                    (propertize
                                     (nth 3 song)
-                                    'face 'font-lock-function-name-face))))))
+                                    'face 'netease-cloud-music-artist-face))))))
         (delete-char -1)))
     (setq-local buffer-read-only t)))
 
@@ -412,7 +459,7 @@ MOVE means do not care about the cursor's position."
   (with-current-buffer netease-cloud-music-buffer-name
     (cond ((and (string-equal "Local Playlist:\n" (thing-at-point 'line))
                 (equal (get-text-property (point) 'face)
-                       '(:height 1.05 :foreground "gold2")))
+                       'netease-cloud-music-playlists-face))
            (setq netease-cloud-music-use-local-playlist t
                  netease-cloud-music-playlists-songs nil
                  netease-cloud-music-playlist-id nil)
@@ -422,7 +469,7 @@ MOVE means do not care about the cursor's position."
            (throw 'stop t))
           
           ((equal (get-text-property (point) 'face)
-                  '(:inherit font-lock-warning-face :weight bold))
+                  'netease-cloud-music-playlist-face)
            (let ((playlist (buffer-substring-no-properties
                             (line-beginning-position)
                             (line-end-position))))

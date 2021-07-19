@@ -234,6 +234,16 @@ If it's t, meaning to use the local playlist."
   :type 'keymap
   :group 'netease-cloud-music)
 
+(defface netease-cloud-music-song-face
+  '((t :inherit font-lock-keyword-face))
+  "The song face."
+  :group 'netease-cloud-music)
+
+(defface netease-cloud-music-artist-face
+  '((t :inherit font-lock-function-name-face))
+  "The artist face."
+  :group 'netease-cloud-music)
+
 (defvar netease-cloud-music-buffer-name "*Netease-Cloud-Music*"
   "The name of Netease Music buffer.")
 
@@ -911,10 +921,10 @@ DELETE-LYRICS means delete all the lyric headers."
   "Show lyrics."
   (ignore-errors
     (concat (propertize (car netease-cloud-music-current-song)
-                        'face 'font-lock-keyword-face)
+                        'face 'netease-cloud-music-song-face)
             " - "
             (propertize (nth 1 netease-cloud-music-current-song)
-                        'face 'font-lock-function-name-face)
+                        'face 'netease-cloud-music-artist-face)
             ": "
             (when (stringp netease-cloud-music-current-lyric)
               netease-cloud-music-current-lyric)
@@ -1621,6 +1631,72 @@ If ADD is t, add songs.Otherwise delete songs."
                    1 1.5 #'netease-cloud-music--refresh-playlist-songs))))
         (netease-cloud-music-tui-init)))))
 
+(na-defun netease-cloud-music-get-recommend-songs ()
+  "Get the recommend songs."
+  (interactive)
+  (let ((songs (netease-api-request "recommend/songs"))
+        result song artist)
+    (if (or (null songs)
+            (/= 200 (alist-get 'code songs)))
+        (na-error "Cannot get recomend songs!")
+      (setq songs (alist-get 'dailySongs (alist-get 'data songs)))
+      (dotimes (i (length songs))
+        (setq song (aref songs i)
+              artist (aref (alist-get 'ar song) 0))
+        (setq result
+              (append result
+                      (list (list (alist-get 'id song)
+                                  (alist-get 'name song)
+                                  (alist-get 'id artist)
+                                  (alist-get 'name artist))))))
+      (setq netease-cloud-music-search-alist
+            (append '("Recommend songs") result))
+      (if (get-buffer netease-cloud-music-buffer-name)
+          (netease-cloud-music-search-song--open-switch
+           result)
+        (setq netease-cloud-music-search-type 'song)
+        (netease-eaf
+         :eaf-buffer
+         (eaf-call-sync "call_function_with_args" eaf--buffer-id
+                        "change_song_style" -1)
+         (eaf-call-sync "call_function_with_args" eaf--buffer-id
+                        "set_playlist"
+                        (format "%S" result))
+         (eaf-call-sync "call_function_with_args" eaf--buffer-id
+                        "change_playlist_mode" "true"))))))
+
+(na-defun netease-cloud-music-get-recommend-playlists ()
+  "Get recommend playlists."
+  (interactive)
+  (let ((playlists (netease-api-request "recommend/resource"))
+        result playlist)
+    (if (or (null playlists)
+            (/= 200 (alist-get 'code playlists)))
+        (na-error "Cannot get recommend playlists.")
+      (setq playlists (alist-get 'recommend playlists))
+      (dotimes (i (length playlists))
+        (setq playlist (aref playlists i))
+        (setq result
+              (append result
+                      (list (cons (alist-get 'name playlist)
+                                  (alist-get 'id playlist))))))
+      (setq netease-cloud-music-search-playlists
+            (append '("Recomend playlists") result))
+      (if (get-buffer netease-cloud-music-buffer-name)
+          (netease-cloud-music-playlist--open-switch result)
+        (setq netease-cloud-music-search-type 'playlist)
+        (netease-eaf
+         :eaf-buffer
+         (eaf-call-sync "call_function_with_args" eaf--buffer-id
+                        "change_song_style" -1)
+         (eaf-call-sync "call_function_with_args" eaf--buffer-id
+                        "set_playlist"
+                        (format "%S"
+                                (netease-cloud-music--playlist-search-format
+                                 result)))
+         (eaf-call-sync "call_function_with_args" eaf--buffer-id
+                        "change_playlist_mode" "true"))))))
+
 (defun netease-cloud-music--refresh-playlist-songs ()
   "Refresh the playlist songs."
   (if netease-cloud-music-use-local-playlist
@@ -1870,7 +1946,7 @@ INDEX is the index of the playlist in search list."
             (netease-cloud-music-save-playlist))
         (dolist (song (netease-cloud-music-get-playlist-songs playlist))
           (unless (alist-get (car song) netease-cloud-music-playlists-songs)
-            (setq ids (append ids (car song)))))
+            (setq ids (append ids (list (car song))))))
         (netease-cloud-music--track t netease-cloud-music-playlist-id ids))
       (when (get-buffer netease-cloud-music-buffer-name)
         (netease-cloud-music-switch-close)
@@ -1880,8 +1956,9 @@ INDEX is the index of the playlist in search list."
        (eaf-call-sync "call_function_with_args" eaf--buffer-id
                       "change_playlist_mode" "false")
        (eaf-call-sync "call_function" eaf--buffer-id "set_playlist")
-       (eaf-call-sync "call_function_with_args" eaf--buffer-id
-                      "change_song_style" netease-cloud-music-playlist-song-index)))))
+       (when netease-cloud-music-process
+         (eaf-call-sync "call_function_with_args" eaf--buffer-id
+                        "change_song_style" netease-cloud-music-playlist-song-index))))))
 
 (defun netease-cloud-music-playlist-add-all ()
   "Add all the searched playlists to the playlist"
@@ -1897,7 +1974,7 @@ INDEX is the index of the playlist in search list."
               (netease-cloud-music-save-playlist))
           (dolist (song (netease-cloud-music-get-playlist-songs (cdr playlist)))
             (unless (alist-get (car song) netease-cloud-music-playlists-songs)
-              (setq ids (append ids (car song)))))))
+              (setq ids (append ids (list (car song))))))))
       (when ids
         (netease-cloud-music--track t netease-cloud-music-playlist-id ids)))
     (if (get-buffer netease-cloud-music-buffer-name)
