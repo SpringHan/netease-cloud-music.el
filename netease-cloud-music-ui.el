@@ -447,7 +447,7 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
 MOVE means do not care about the cursor's position."
   (let ((get (lambda ()
                (with-current-buffer netease-cloud-music-buffer-name
-                 (while (eq (get-text-property (point) 'face) 'font-lock-keyword-face) ;To get to the playlist's name
+                 (while (eq (get-text-property (point) 'face) 'netease-cloud-music-song-face) ;To get to the playlist's name
                    (forward-line -1))
                  (alist-get (buffer-substring-no-properties
                              (line-beginning-position) (line-end-position))
