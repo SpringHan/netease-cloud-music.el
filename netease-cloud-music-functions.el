@@ -351,6 +351,31 @@ If the item is exists, return the cons."
                ,@body)
           `(eval ,@body)))))
 
+(defun netease-cloud-music--get-lyric-time (lyric)
+  "Get the LYRIC's time."
+  (let (time min sec)
+    (progn
+      (string-match "\\[\\(.*\\):\\(.*\\)\\.\\(.*\\)\\]\\(.*\\)"
+                    lyric)
+      (setq min (match-string 2 lyric)
+            sec (match-string 3 lyric)))
+    (setq time (string-to-number (concat min "." sec)))))
+
+(defun netease-cloud-music--format-lyric-time (time)
+  "Format lyric TIME."
+  (if (or (< time 0)
+           (< (length (number-to-string time)) 5))
+      time
+    (let ((time-string (number-to-string time))
+          sec msec)
+      (progn
+        (string-match "\\(.*\\)\\.\\(.*\\)" time-string)
+        (setq sec (match-string 1 time-string)
+              msec (match-string 2 time-string)))
+      (string-to-number
+       (concat sec "." (substring msec
+                                  0 2))))))
+
 (provide 'netease-cloud-music-functions)
 
 ;;; netease-cloud-music-functions.el ends here
