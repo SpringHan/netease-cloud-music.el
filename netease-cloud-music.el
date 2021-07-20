@@ -2029,7 +2029,10 @@ INDEX is the index of the playlist in search list."
   (interactive)
   (unless song
     (setq song (if (get-buffer netease-cloud-music-buffer-name)
-                   (netease-cloud-music--current-song)
+                   (nth (netease-cloud-music--current-song)
+                        (if netease-cloud-music-use-local-playlist
+                            netease-cloud-music-playlist
+                          netease-cloud-music-playlists-songs))
                  (nth (1- (read-number "Enter the song's index: "))
                       (if netease-cloud-music-use-local-playlist
                           netease-cloud-music-playlist
