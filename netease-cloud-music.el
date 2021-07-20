@@ -699,7 +699,8 @@ SONG-ID is the song's id for current lyric."
            (setq last-time current-time))
 
          (when (and (numberp min-time)
-                    (timerp netease-cloud-music-lyric-timer))
+                    (timerp netease-cloud-music-lyric-timer)
+                    (< min-time 1))
            (timer-set-time netease-cloud-music-lyric-timer
                            0 min-time)))))))
 
@@ -2069,8 +2070,9 @@ INDEX is the index of the playlist in search list."
        (eaf-call-sync "call_function" eaf--buffer-id "set_playlist")
        (netease-cloud-music-adjust-song-index)))))
 
-(defun netease-cloud-music-show-storage ()
-  "Show the songs in storage."
+(defun netease-cloud-music-show-storage (&optional refresh)
+  "Show the songs in storage.
+REFRESH means to refresh the storage."
   (interactive)
   (if (null netease-cloud-music-storage)
       (message "[Netease-Cloud-Music]: Storage is empty.")
@@ -2079,6 +2081,9 @@ INDEX is the index of the playlist in search list."
          netease-cloud-music-storage)
       (netease-eaf
        :eaf-buffer
+       (when refresh
+         (eaf-call-sync "call_function_with_args" eaf--buffer-id
+                        "change_playlist_mode" "false"))
        (eaf-call-sync "call_function_with_args" eaf--buffer-id
                       "change_song_style" -1)
        (eaf-call-sync "call_function_with_args" eaf--buffer-id
@@ -2086,6 +2091,29 @@ INDEX is the index of the playlist in search list."
                       (format "%S" netease-cloud-music-storage))
        (eaf-call-sync "call_function_with_args" eaf--buffer-id
                       "change_playlist_mode" "true")))))
+
+(defun netease-cloud-music-delete-song-from-storage (&optional song)
+  "Delete SONG from storage."
+  (interactive)
+  (setq song (nth (if (get-buffer netease-cloud-music-buffer-name)
+                      (with-current-buffer "*Netease-Cloud-Music:Switch->Songs*"
+                        (setq index (1- (line-number-at-pos))))
+                    (1- (read-number "Enter the song's index: ")))
+                  netease-cloud-music-storage))
+  (if (null song)
+      (na-error "The song is not exists!")
+    (setq netease-cloud-music-storage (delete song netease-cloud-music-storage))
+    (message "[Netease-Cloud-Music]: Deleted song from storage.")
+    (if (null netease-cloud-music-storage)
+        (if (get-buffer netease-cloud-music-buffer-name)
+            (netease-cloud-music-switch-close)
+          (netease-eaf
+           :eaf-buffer
+           (eaf-call-sync "call_function_with_args" eaf--buffer-id
+                          "change_playlist_mode" "false")
+           (eaf-call-sync "call_function" eaf--buffer-id "set_playlist")
+           (netease-cloud-music-adjust-song-index)))
+      (netease-cloud-music-show-storage t))))
 
 (defun netease-cloud-music-clear-storage ()
   "Clear the storage."

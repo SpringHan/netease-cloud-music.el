@@ -128,6 +128,7 @@
     (define-key map "P" 'netease-cloud-music-switch-play-page)
     (define-key map "a" 'netease-cloud-music-switch-add-to-playlist)
     (define-key map "A" 'netease-cloud-music-switch-add-page)
+    (define-key map "d" 'netease-cloud-music-delete-song-from-storage)
     map)
   "The Netease Cloud Music Songs Switch mode map."
   :type 'keymap

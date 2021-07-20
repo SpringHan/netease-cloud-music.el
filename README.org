@@ -77,6 +77,7 @@
    | p      | 上一行 (song 和 playlist 通用) 或 将歌单歌曲替换为搜索结果 (for song)                               |
    | f      | 下一页结果                                                                                          |
    | b      | 上一页结果                                                                                          |
+   | d      | 从 storage 删除光标下歌曲                                                                           |
    | RET    | 将歌曲加入到本地歌单 (for song) 或 将歌单中歌曲加入到当前歌单 (for playlist)                        |
    | P      | 将当前歌单替换为搜索到的一定页数的歌曲 (for song)                                                   |
    | a      | 将当前页搜索到的歌曲加入到当前歌单 (for song) 或将本页所有歌单搜索结果加入到当前歌单 (for playlist) |
