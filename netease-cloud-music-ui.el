@@ -379,7 +379,7 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
                                        (nth 1 s)
                                        'face 'netease-cloud-music-song-face)
                                       (propertize
-                                       (nth 3 s)
+                                       (if (nth 3 s) (nth 3 s) "nil")
                                        'face 'netease-cloud-music-artist-face))))
                   netease-cloud-music-playlists-songs))))
 
@@ -438,7 +438,7 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
                                     (nth 1 song)
                                     'face 'netease-cloud-music-song-face)
                                    (propertize
-                                    (nth 3 song)
+                                    (if (nth 3 song) (nth 3 song) "nil")
                                     'face 'netease-cloud-music-artist-face))))))
         (delete-char -1)))
     (setq-local buffer-read-only t)))
