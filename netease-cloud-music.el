@@ -752,7 +752,11 @@ SONG-ID is the song's id for current lyric."
   "Play the playlist songs."
   (interactive)
   (when (string= netease-cloud-music-repeat-mode "")
-    (setq netease-cloud-music-repeat-mode "playlist"))
+    (setq netease-cloud-music-repeat-mode "playlist")
+    (netease-eaf
+     :eaf-buffer
+     (eaf-setq eaf-netease-cloud-music-repeat-mode "playlist")
+     (eaf-call-sync "call_function" eaf--buffer-id "set_repeat_mode")))
   (let (current-song song)
     (when (and (ignore-errors
                  (eq (key-binding (read-kbd-macro (char-to-string last-input-event)))
