@@ -907,7 +907,15 @@ FORCE means to forcely kill it."
   (interactive)
   (when (yes-or-no-p "Do you really want to clear playlist?")
     (if netease-cloud-music-use-local-playlist
-        (setq netease-cloud-music-playlist nil)
+        (progn
+          (setq netease-cloud-music-playlist nil)
+          (if (get-buffer netease-cloud-music-buffer-name)
+              (netease-cloud-music-interface-init)
+            (netease-eaf
+             :eaf-buffer
+             (eaf-setq eaf-netease-cloud-music-playlist "()")
+             (eaf-call-sync "call_function_with_args" eaf--buffer-id
+                            "set_playlist" "()"))))
       (let (ids)
         (dolist (song netease-cloud-music-playlists-songs)
           (setq ids (append ids (list (car song)))))
