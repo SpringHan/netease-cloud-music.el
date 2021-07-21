@@ -1761,7 +1761,7 @@ If ADD is t, add songs.Otherwise delete songs."
         (netease-cloud-music-tui-init)))))
 
 (defun netease-cloud-music-delete-song-from-playlist (&optional index)
-  "Delete current song from playlist. 
+  "Delete current song from playlist.
 INDEX is the song's index in playlist."
   (interactive)
   (when (or index
@@ -2043,6 +2043,21 @@ INDEX is the index of the playlist in search list."
           (append netease-cloud-music-storage
                   (list song)))
     (message "[Netease-Cloud-Music]: Added the song into storage.")))
+
+(defun netease-cloud-music-storage-current-song ()
+  "Storage current playing song. "
+  (interactive)
+  (if netease-cloud-music-current-song
+      (let ((song (nth netease-cloud-music-playlist-song-index
+                       (if netease-cloud-music-use-local-playlist
+                           netease-cloud-music-playlist
+                         netease-cloud-music-playlists-songs))))
+        (unless (netease-cloud-music--memeq song netease-cloud-music-storage)
+          (setq netease-cloud-music-storage
+                (append netease-cloud-music-storage
+                        (list song)))
+          (message "[Netease-Cloud-Music]: Added current playing song into storage.")))
+    ))
 
 (defun netease-cloud-music-add-storage-to-current-playlist ()
   "Add the songs in storage into current playlist."
