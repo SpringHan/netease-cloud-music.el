@@ -143,6 +143,7 @@
     (define-key map "f" 'netease-cloud-music-switch-next-page)
     (define-key map "b" 'netease-cloud-music-switch-prev-page)
     (define-key map (kbd "RET") 'netease-cloud-music-playlist-enter)
+    (define-key map (kbd "TAB") 'netease-cloud-music-playlist-tab)
     map)
   "The Playlist switch mode map."
   :type 'keymap
@@ -313,7 +314,10 @@
     (setq buffer-read-only nil)
     (erase-buffer)
     (dolist (playlist playlists)
-      (insert (format "%s\n" (car playlist))))
+      (insert (propertize (car playlist)
+                          'face 'netease-cloud-music-playlist-face)
+              "\n")
+      )
     (setq buffer-read-only t)
     (goto-char (point-min))))
 

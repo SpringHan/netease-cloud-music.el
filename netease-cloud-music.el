@@ -2000,6 +2000,52 @@ INDEX is the index of the playlist in search list."
          (eaf-call-sync "call_function_with_args" eaf--buffer-id
                         "change_song_style" netease-cloud-music-playlist-song-index))))))
 
+(defun netease-cloud-music-playlist-tab (&optional index)
+  "Toggle the songs of playlist under cursor in switch playlist buffer."
+  (interactive)
+  (let ((playlist (if (get-buffer netease-cloud-music-buffer-name)
+                      (alist-get
+                       (substring (thing-at-point 'line) 0 -1)
+                       netease-cloud-music-search-playlists nil nil 'string-equal)
+                    (if (null index)
+                        (na-error "The index is error!")
+                      (cdr (nth index (cdr netease-cloud-music-search-playlists)))))))
+
+    (if (null playlist)
+        (na-error "The playlist can not found!")
+      (with-current-buffer "*Netease-Cloud-Music:Switch->Playlist*"
+        (setq-local buffer-read-only nil)
+        (save-mark-and-excursion
+          (forward-line)                    ;To check the next line if it's a null string or songs' info.
+          (if (not (or (equal (get-text-property (point) 'face)
+                              'netease-cloud-music-playlist-face)
+                       (string-empty-p (buffer-substring-no-properties
+                                        (line-beginning-position)
+                                        (line-end-position)))))
+              (progn
+                (while (eq (get-text-property (point) 'face)
+                           'netease-cloud-music-song-face)
+                  (delete-region (line-beginning-position) (line-end-position))
+                  (delete-char 1)))
+            (forward-line -1)
+            (goto-char (line-end-position))
+            (insert "\n")
+            (let ((songs (netease-cloud-music-get-playlist-songs playlist)))
+              (if (null songs)
+                  (message "[Netease-Cloud-Music]: The playlist is empty.")
+                (dolist (song songs)
+                  (insert (format "%s - %s\n"
+                                  (propertize
+                                   (nth 1 song)
+                                   'face 'netease-cloud-music-song-face)
+                                  (propertize
+                                   (if (nth 3 song) (nth 3 song) "nil")
+                                   'face 'netease-cloud-music-artist-face))))))
+            (delete-char -1))
+          )
+        (setq-local buffer-read-only t))
+      )))
+
 (defun netease-cloud-music-playlist-add-all ()
   "Add all the searched playlists to the playlist"
   (interactive)
