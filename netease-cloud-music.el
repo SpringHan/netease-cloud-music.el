@@ -2041,10 +2041,8 @@ INDEX is the index of the playlist in search list."
                                   (propertize
                                    (if (nth 3 song) (nth 3 song) "nil")
                                    'face 'netease-cloud-music-artist-face))))))
-            (delete-char -1))
-          )
-        (setq-local buffer-read-only t))
-      )))
+            (delete-char -1)))
+        (setq-local buffer-read-only t)))))
 
 (defun netease-cloud-music-playlist-add-all ()
   "Add all the searched playlists to the playlist"
