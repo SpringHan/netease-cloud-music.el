@@ -316,8 +316,7 @@
     (dolist (playlist playlists)
       (insert (propertize (car playlist)
                           'face 'netease-cloud-music-playlist-face)
-              "\n")
-      )
+              "\n"))
     (setq buffer-read-only t)
     (goto-char (point-min))))
 
