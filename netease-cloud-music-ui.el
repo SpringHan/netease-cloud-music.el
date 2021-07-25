@@ -28,6 +28,8 @@
 
 ;;; This file is the TUI for client.
 
+(require 'netease-cloud-music)
+
 (defface netease-cloud-music-head-title-face
   '((t :height 1.1 :foreground "Red3"))
   "The head title face."
@@ -174,7 +176,7 @@
   :syntax-table nil)
 
 (defun netease-cloud-music-open-switch (buffer-name)
-  "Open the switch buffer."
+  "Open the switch buffer by its BUFFER-NAME."
   (split-window nil nil 'above)
   (switch-to-buffer (format "*Netease-Cloud-Music:Switch->%s*"
                             buffer-name))
@@ -198,7 +200,7 @@
     (netease-cloud-music-switch-close)))
 
 (defun netease-cloud-music-switch-play-page (page)
-  "Play songs by page."
+  "Play songs by PAGE."
   (interactive (list (read-string "Enter the page[n-n]: " "1-")))
   (when (yes-or-no-p "If you really want to do this? It'll replace all your songs!")
     (if netease-cloud-music-use-local-playlist
@@ -235,7 +237,7 @@
 
 ;;;###autoload
 (defun netease-cloud-music ()
-  "Initialize the Netease Music buffer in netease-cloud-music-mode."
+  "Initialize the Netease Music buffer in `netease-cloud-music-mode'."
   (interactive)
   (setq netease-cloud-music-last-buffer (current-buffer)) ;Record the buffer which called this function
   
@@ -282,7 +284,8 @@
   (kill-buffer netease-cloud-music-buffer-name))
 
 (defun netease-cloud-music-search-song--open-switch (songs-info)
-  "Enter the `netease-cloud-music-switch-mode' to switch song from searched."
+  "Enter the `netease-cloud-music-switch-mode' to switch song from searched.
+SONGS-INFO is the infos of the songs want to show."
   (unless (eq major-mode 'netease-cloud-music-switch-song-mode)
     (netease-cloud-music-open-switch "Songs"))
   (with-current-buffer "*Netease-Cloud-Music:Switch->Songs*"
@@ -305,7 +308,7 @@
     (goto-char (point-min))))
 
 (defun netease-cloud-music-playlist--open-switch (playlists)
-  "Open switch buffer for playlist."
+  "Open switch buffer for PLAYLISTS."
   (unless (eq major-mode 'netease-cloud-music-switch-playlist-mode)
     (netease-cloud-music-open-switch "Playlist"))
   (with-current-buffer "*Netease-Cloud-Music:Switch->Playlist*"
@@ -320,17 +323,8 @@
     (setq buffer-read-only t)
     (goto-char (point-min))))
 
-(defun netease-cloud-music-interface-init (&optional content type)
-  "Initialize the Netease Music buffer interface.
-CONTENT is a cons, its value is variable with TYPE.
-
-TYPE is a symbol, its value can be song or song-ask.
-
-When TYPE is song-ask, CONTENT can be:
-
-'(music-name . artist-name)
-
-If CONTENT is nil and TYPE is not song, it will print the init content."
+(defun netease-cloud-music-interface-init ()
+  "Initialize the Netease Music buffer interface."
   (interactive)
   (with-current-buffer netease-cloud-music-buffer-name
     (unless (eq major-mode 'netease-cloud-music-write-mode)
@@ -405,7 +399,8 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
       (forward-line 3))))
 
 (defun netease-cloud-music-toggle-playlist-songs (pid)
-  "Toggle the songs of playlist under cursor."
+  "Toggle the songs of playlist under cursor.
+PID is the playlist's id."
   (interactive (list
                 (let ((playlist-name (substring-no-properties
                                       (thing-at-point 'line) 0 -1))
@@ -414,7 +409,7 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
                        (setq playlist
                              (alist-get playlist-name netease-cloud-music-playlists
                                         nil nil 'string-equal)))
-                      (na-error "The playlist is not exists!")
+                      (netease-cloud-music-error "The playlist is not exists!")
                     playlist))))
   (with-current-buffer netease-cloud-music-buffer-name
     (setq-local buffer-read-only nil)
@@ -437,13 +432,13 @@ If CONTENT is nil and TYPE is not song, it will print the init content."
           (if (null songs)
               (message "[Netease-Cloud-Music]: The playlist is empty.")
             (dolist (song songs)
-                   (insert (format "%s - %s\n"
-                                   (propertize
-                                    (nth 1 song)
-                                    'face 'netease-cloud-music-song-face)
-                                   (propertize
-                                    (if (nth 3 song) (nth 3 song) "nil")
-                                    'face 'netease-cloud-music-artist-face))))))
+              (insert (format "%s - %s\n"
+                              (propertize
+                               (nth 1 song)
+                               'face 'netease-cloud-music-song-face)
+                              (propertize
+                               (if (nth 3 song) (nth 3 song) "nil")
+                               'face 'netease-cloud-music-artist-face))))))
         (delete-char -1)))
     (setq-local buffer-read-only t)))
 
@@ -456,8 +451,7 @@ MOVE means do not care about the cursor's position."
                    (forward-line -1))
                  (alist-get (buffer-substring-no-properties
                              (line-beginning-position) (line-end-position))
-                            netease-cloud-music-playlists nil nil 'string-equal))))
-        playlist)
+                            netease-cloud-music-playlists nil nil 'string-equal)))))
     (if move
         (funcall get)
       (save-mark-and-excursion

@@ -26,20 +26,34 @@
 
 ;;; Code:
 
+(defcustom netease-cloud-music-api-type (cond ((executable-find "npm") 'npm)
+                                              ((or (executable-find "docker")
+                                                   (executable-find "podman"))
+                                               'docker))
+  "How to manage the api.
+
+Its value can be as following:
+npm: download api project into `netease-cloud-music-api-dir' and run npm
+locally.
+docker: use docker to start the api."
+  :group 'netease-cloud-music
+  :type '(choice (const :tag "Native" native)
+                 (const :tag "Docker" docker)))
+
 (defun netease-cloud-music-get-loginfo ()
   "Get login info."
   (when (file-exists-p netease-cloud-music-user-loginfo-file)
     (let* ((content (split-string
-                  (with-temp-buffer
-                    (insert-file-contents netease-cloud-music-user-loginfo-file)
-                    (buffer-string))
-                  "\n" t))
+                     (with-temp-buffer
+                       (insert-file-contents netease-cloud-music-user-loginfo-file)
+                       (buffer-string))
+                     "\n" t))
            (phone (cons (car content) (nth 1 content)))
            (password (nth 2 content)))
       (cons phone password))))
 
 (defun netease-cloud-music-save-loginfo (loginfo)
-  "Save login info. LOGINFO is the info."
+  "Save login info.  LOGINFO is the info."
   (unless (file-exists-p netease-cloud-music-user-loginfo-file)
     (make-empty-file netease-cloud-music-user-loginfo-file))
   (with-temp-file netease-cloud-music-user-loginfo-file
@@ -54,7 +68,7 @@
   "Print the error message, it's SEQ."
   (let ((main (pop seq)))
     (eval `(user-error (concat "[Netease-Cloud-Music]: " ,main)
-                          ,@seq))))
+                       ,@seq))))
 
 (defun netease-cloud-music-request-from-api (content &optional type limit)
   "Request the CONTENT from Netease Music API.
@@ -102,35 +116,36 @@ Otherwise return nil."
   "Read the Netease Music json DATA and return the result."
   (let (song artist result)
     (if (/= 200 (alist-get 'code data))
-        (na-error "The song you search is error!")
+        (netease-cloud-music-error "The song you search is error!")
       (setq data (alist-get 'songs (alist-get 'result data)))
       (dotimes (n (length data))
         (setq song (aref data n)
               artist (aref (alist-get 'artists song) 0))
-        (add-to-list 'result
-                     (list (alist-get 'id song)
-                           (alist-get 'name song)
-                           (alist-get 'id artist)
-                           (alist-get 'name artist))
-                     t))
+        (setq result (append result
+                             (list
+                              (list (alist-get 'id song)
+                                    (alist-get 'name song)
+                                    (alist-get 'id artist)
+                                    (alist-get 'name artist))))))
       result)))
 
 (defun netease-cloud-music-get-playlists (data)
   "Read the playlist json DATA searched from API."
   (let (playlist result)
     (if (/= 200 (alist-get 'code data))
-        (na-error "The playlist you search is error!")
+        (netease-cloud-music-error "The playlist you search is error!")
       (setq data (alist-get 'playlists (alist-get 'result data)))
       (dotimes (n (length data))
         (setq playlist (aref data n))
-        (add-to-list 'result
-                     (cons (alist-get 'name playlist)
-                           (alist-get 'id playlist))
-                     t))
+        (setq result (append result
+                             (list
+                              (cons (alist-get 'name playlist)
+                                    (alist-get 'id playlist))))))
       result)))
 
 (defun netease-cloud-music--songs-by-page (page-string)
-  "Get the songs list by the page limit."
+  "Get the songs list by the page limit.
+PAGE-STRING is the string that includes the two pages."
   (let (start end search-result)
     (progn
       (string-match "\\(.*\\)-\\(.*\\)" page-string)
@@ -176,7 +191,8 @@ NO-RESULT-LIMIT means do not limit the catch."
     result))
 
 (defun netease-cloud-music--current-song (&optional song-info)
-  "Get the current song at point."
+  "Get the current song at point.
+If SONG-INFO is non-nil, get its song info."
   (let ((song (cond ((stringp song-info)
                      song-info)
                     (song-info nil)
@@ -215,7 +231,7 @@ NO-RESULT-LIMIT means do not limit the catch."
      string)))
 
 (defun netease-cloud-music--index (ele list)
-  "Get the index of ELE in LIST. Use `equal' to check."
+  "Get the index of ELE in LIST.  Use `equal' to check."
   (let ((index 0))
     (catch 'stop
       (dolist (item list)
@@ -272,7 +288,7 @@ BODY is the main codes for the function."
           (pop body)))
      (if (not (or (not (netease-cloud-music--api-need-downloaded))
                   (netease-cloud-music--api-downloaded))) ; = !(x -> y)
-         (na-error "The third-party API has not been donwloaded!")
+         (netease-cloud-music-error "The third-party API has not been donwloaded!")
        ,@body)))
 
 (defun netease-api-request (url)
@@ -287,6 +303,7 @@ URL is the url to request."
                      netease-cloud-music-user-password
                      (car netease-cloud-music-phone))
       :success (netease-cloud-music-expand-form
+                data                    ;PlaceHolder
                 (request url
                   :parser 'buffer-string
                   :success (netease-cloud-music-expand-form
@@ -300,7 +317,7 @@ URL is the url to request."
                               (message nil)) ;Ignore the warning when API has not finished starting.
                             (when (get-buffer " *Request")
                               (with-current-buffer " *Request*"
-                                (erase-buffer))))) 
+                                (erase-buffer)))))
       :sync t)
     (when (get-buffer " *Request*")
       (with-current-buffer " *Request*"
@@ -309,7 +326,8 @@ URL is the url to request."
     result))
 
 (defun netease-cloud-music-alist-cdr (key list)
-  "Find the first item in LIST which `cdr' is equal to KEY. Use `equal' to compare.
+  "Find the first item in LIST which `cdr' is equal to KEY.
+Use `equal' to compare.
 If the item is exists, return the cons."
   (if (not (listp list))
       (user-error "The %S is not a list!" list)
@@ -341,7 +359,7 @@ If the item is exists, return the cons."
     text))
 
 (defmacro netease-cloud-music-for-eaf (&rest body)
-  "The macro for eaf. BODY is the lisp you want to execute."
+  "The macro for eaf.  BODY is the Lisp you want to execute."
   (let ((with-eaf-buffer (eq (car body) :eaf-buffer)))
     (when with-eaf-buffer
       (pop body))
@@ -353,18 +371,18 @@ If the item is exists, return the cons."
 
 (defun netease-cloud-music--get-lyric-time (lyric)
   "Get the LYRIC's time."
-  (let (time min sec)
+  (let (min sec)
     (progn
       (string-match "\\[\\(.*\\):\\(.*\\)\\.\\(.*\\)\\]\\(.*\\)"
                     lyric)
       (setq min (match-string 2 lyric)
             sec (match-string 3 lyric)))
-    (setq time (string-to-number (concat min "." sec)))))
+    (string-to-number (concat min "." sec))))
 
 (defun netease-cloud-music--format-lyric-time (time)
   "Format lyric TIME."
   (if (or (< time 0)
-           (< (length (number-to-string time)) 5))
+          (< (length (number-to-string time)) 5))
       time
     (let ((time-string (number-to-string time))
           sec msec)
@@ -375,6 +393,24 @@ If the item is exists, return the cons."
       (string-to-number
        (concat sec "." (substring msec
                                   0 2))))))
+
+(defmacro netease-cloud-music-eaf-defun (name args &rest body)
+  "If the NAME function is not exists, define it.
+ARGS is the arguments.
+BODY is the body of the function."
+  (declare (indent defun))
+  (unless (or (functionp (symbol-function name))
+               (macrop (symbol-function name)))
+    `(defun ,name ,args
+       ,@body)))
+
+(netease-cloud-music-eaf-defun eaf-setq (&rest args)
+  args)
+
+(netease-cloud-music-eaf-defun eaf-call-sync (&rest args)
+  args)
+
+(netease-cloud-music-eaf-defun eaf--netease-cloud-music--update-song-style ())
 
 (provide 'netease-cloud-music-functions)
 
