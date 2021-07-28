@@ -1167,7 +1167,8 @@ If HINT is not non-nil, show the hint message."
    :eaf-buffer
    (eaf-setq eaf-netease-cloud-music-local-playlist+list netease-cloud-music-playlist)
    (when netease-cloud-music-use-local-playlist
-     (eaf-call-sync "call_function" eaf--buffer-id "set_playlist"))))
+     (eaf-call-sync "call_function_with_args" eaf--buffer-id
+                    "set_playlist" netease-cloud-music-playlist))))
 
 (defun netease-cloud-music-get-playlist ()
   "Set the playlist to the one which saved in the cache file."
@@ -1400,7 +1401,7 @@ NO-ERROR means to close error signal."
     (let ((countrycode (prog2 (string-match "\\(.*\\) \\(.*\\)" phone)
                            (substring (match-string 1 phone) 1)
                          (setq phone (match-string 2 phone))))
-          login-result)
+          login-result other-info)
       (request (format "http://localhost:%s/login/cellphone?phone=%s&md5_password=%s&countrycode=%s"
                        netease-cloud-music-api-port phone password countrycode)
         :parser 'json-read
@@ -1421,11 +1422,12 @@ NO-ERROR means to close error signal."
         (netease-cloud-music-tui-init)
         (netease-cloud-music-for-eaf
          :eaf-buffer
-         (eaf-setq eaf-netease-cloud-music-user+list
-                   (list netease-cloud-music-username
-                         (alist-get 'avatarUrl
-                                    (alist-get 'profile login-result))))
-         (eaf-call-sync "call_function" eaf--buffer-id "update_user_info"))
+         (setq other-info (list netease-cloud-music-username
+                                (alist-get 'avatarUrl
+                                           (alist-get 'profile login-result))))
+         (eaf-setq eaf-netease-cloud-music-user+list other-info)
+         (eaf-call-sync "call_function_with_args" eaf--buffer-id
+                        "update_user_info" other-info))
         (netease-cloud-music--refresh-playlists)))))
 
 (netease-api-defun netease-cloud-music--song-url-by-user (id)
@@ -1442,7 +1444,8 @@ ID is the song's id."
 (netease-api-defun netease-cloud-music--get-user-info ()
   "Get user's info automatically and then login."
   (let ((info (cdr (car (ignore-errors
-                          (netease-api-request "login/status"))))))
+                          (netease-api-request "login/status")))))
+        other-info)
     (when info
       (if (/= 200 (alist-get 'code info))
           (netease-cloud-music-error "Phone number or password is error!")
@@ -1450,11 +1453,14 @@ ID is the song's id."
               netease-cloud-music-user-id (alist-get 'id (alist-get 'account info)))
         (netease-cloud-music-for-eaf
          :eaf-buffer
+         (setq other-info
+               (list netease-cloud-music-username
+                     (alist-get 'avatarUrl
+                                (alist-get 'profile info))))
          (eaf-setq eaf-netease-cloud-music-user+list
-                   (list netease-cloud-music-username
-                         (alist-get 'avatarUrl
-                                    (alist-get 'profile info))))
-         (eaf-call-sync "call_function" eaf--buffer-id "update_user_info"))
+                   other-info)
+         (eaf-call-sync "call_function_with_args" eaf--buffer-id
+                        "update_user_info" other-info))
         (message "[Netease-Cloud-Music]: Login successfully!")))))
 
 (defun netease-cloud-music--refresh-playlists ()
