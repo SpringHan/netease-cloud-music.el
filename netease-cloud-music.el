@@ -539,7 +539,8 @@ SONG-NAME is a string."
   "Change the repeat mode.
 When REPEAT-MODE is non-nil, set current repeat mode to it."
   (interactive)
-  (if (string= netease-cloud-music-repeat-mode "")
+  (if (and (string= netease-cloud-music-repeat-mode "")
+           (null repeat-mode))
       (netease-cloud-music-error
        "The repeat mode is in the initialization state.  when you start playing song, it'll be set!")
     (setq netease-cloud-music-repeat-mode
@@ -912,6 +913,7 @@ FORCE means to forcely kill it."
   "Clear the playlist and kill current song."
   (interactive)
   (when (yes-or-no-p "Do you really want to clear playlist?")
+    (netease-cloud-music-kill-current-song)
     (if netease-cloud-music-use-local-playlist
         (progn
           (setq netease-cloud-music-playlist nil)
@@ -921,13 +923,12 @@ FORCE means to forcely kill it."
              :eaf-buffer
              (eaf-setq eaf-netease-cloud-music-local-playlist+list '())
              (eaf-call-sync "call_function_with_args" eaf--buffer-id
-                            "set_playlist" '()))))
+                            "set_playlist" nil))))
       (let (ids)
         (dolist (song netease-cloud-music-playlists-songs)
           (setq ids (append ids (list (car song)))))
         (netease-cloud-music--track
-         nil netease-cloud-music-playlist-id ids)))
-    (netease-cloud-music-kill-current-song)))
+         nil netease-cloud-music-playlist-id ids)))))
 
 (defun netease-cloud-music-add-header-lyrics ()
   "Add lyrics in current header."
@@ -1501,7 +1502,7 @@ ID is the song's id."
                                         "set_index_style" t)
                       (- (read-number "Enter the playlist's index: ") 2)
                     (eaf-call-sync "call_function_with_args" eaf--buffer-id
-                                   "set_index_style" nil))))))
+                                   "set_index_style" "false"))))))
   (let ((id (if (get-buffer netease-cloud-music-buffer-name)
                 (progn
                   (string-match "^\\(.*\\) - \\(.*\\)" name)
@@ -1580,7 +1581,7 @@ NAME is its name."
               (playlist (nth index netease-cloud-music-playlists)))
          (setq pid (cdr-safe playlist)))
        (eaf-call-sync "call_function_with_args" eaf--buffer-id
-                      "set_index_style" nil)))
+                      "set_index_style" "False")))
     (setq name (read-string "Enter the new name: ")))
   (netease-cloud-music-update-playlist-name pid name)
   (netease-cloud-music-tui-init))
@@ -1877,7 +1878,7 @@ INDEX is the index of the song in search list."
       (netease-cloud-music-for-eaf
        :eaf-buffer
        (eaf-call-sync "call_function_with_args" eaf--buffer-id
-                      "change_playlist_mode" nil)
+                      "change_playlist_mode" "False")
        (eaf-call-sync "call_function" eaf--buffer-id "set_playlist")
        (netease-cloud-music-adjust-song-index)))))
 
@@ -1917,7 +1918,7 @@ INDEX is the index of the song in search list."
         (netease-cloud-music-for-eaf
          :eaf-buffer
          (eaf-call-sync "call_function_with_args" eaf--buffer-id
-                        "change_playlist_mode" nil)
+                        "change_playlist_mode" "False")
          (eaf-call-sync "call_function_with_args" eaf--buffer-id
                         "set_playlist"
                         (if (eq (car mode) 'playlist)
@@ -1951,7 +1952,7 @@ INDEX is the index of the song in search list."
     (netease-cloud-music-for-eaf
      :eaf-buffer
      (eaf-call-sync "call_function_with_args" eaf--buffer-id
-                    "change_playlist_mode" nil)
+                    "change_playlist_mode" "False")
      (eaf-call-sync "call_function" eaf--buffer-id "set_playlist")
      (netease-cloud-music-adjust-song-index))))
 
@@ -1982,7 +1983,7 @@ PAGE is the pages info."
     (netease-cloud-music-for-eaf
      :eaf-buffer
      (eaf-call-sync "call_function_with_args" eaf--buffer-id
-                    "change_playlist_mode" nil)
+                    "change_playlist_mode" "False")
      (eaf-call-sync "call_function" eaf--buffer-id "set_playlist")
      (netease-cloud-music-adjust-song-index))))
 
@@ -2014,7 +2015,7 @@ INDEX is the index of the playlist in search list."
       (netease-cloud-music-for-eaf
        :eaf-buffer
        (eaf-call-sync "call_function_with_args" eaf--buffer-id
-                      "change_playlist_mode" nil)
+                      "change_playlist_mode" "False")
        (eaf-call-sync "call_function" eaf--buffer-id "set_playlist")
        (when netease-cloud-music-process
          (eaf-call-sync "call_function_with_args" eaf--buffer-id
@@ -2089,7 +2090,7 @@ INDEX is the playlist's index."
       (netease-cloud-music-for-eaf
        :eaf-buffer
        (eaf-call-sync "call_function_with_args" eaf--buffer-id
-                      "change_playlist_mode" nil)
+                      "change_playlist_mode" "False")
        (eaf-call-sync "call_function" eaf--buffer-id "set_playlist")
        (netease-cloud-music-adjust-song-index)))))
 
@@ -2197,7 +2198,7 @@ REFRESH means to refresh the storage."
        :eaf-buffer
        (when refresh
          (eaf-call-sync "call_function_with_args" eaf--buffer-id
-                        "change_playlist_mode" nil))
+                        "change_playlist_mode" "False"))
        (eaf-call-sync "call_function_with_args" eaf--buffer-id
                       "change_song_style" -1)
        (eaf-call-sync "call_function_with_args" eaf--buffer-id
@@ -2223,7 +2224,7 @@ REFRESH means to refresh the storage."
           (netease-cloud-music-for-eaf
            :eaf-buffer
            (eaf-call-sync "call_function_with_args" eaf--buffer-id
-                          "change_playlist_mode" nil)
+                          "change_playlist_mode" "False")
            (eaf-call-sync "call_function" eaf--buffer-id "set_playlist")
            (netease-cloud-music-adjust-song-index)))
       (netease-cloud-music-show-storage t))))
