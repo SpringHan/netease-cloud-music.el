@@ -466,7 +466,8 @@ Otherwise return nil."
    :eaf-buffer
    (eaf-setq eaf-netease-cloud-music-play-status "")
    (eaf-setq eaf-netease-cloud-music-current-song+list '("" ""))
-   (eaf-call-sync "call_function" eaf--buffer-id "set_panel_song")
+   (eaf-call-sync "call_function_with_args" eaf--buffer-id
+                  "set_panel_song" "" "")
    (eaf-call-sync "call_function_with_args" eaf--buffer-id
                   "update_play_status" "")
    (eaf-call-sync "call_function_with_args" eaf--buffer-id
@@ -534,24 +535,28 @@ SONG-NAME is a string."
        (eaf-call-sync "call_function_with_args" eaf--buffer-id
                       "change_playlist_mode" t)))))
 
-(defun netease-cloud-music-change-repeat-mode ()
-  "Change the repeat mode."
+(defun netease-cloud-music-change-repeat-mode (&optional repeat-mode)
+  "Change the repeat mode.
+When REPEAT-MODE is non-nil, set current repeat mode to it."
   (interactive)
   (if (string= netease-cloud-music-repeat-mode "")
       (netease-cloud-music-error
        "The repeat mode is in the initialization state.  when you start playing song, it'll be set!")
     (setq netease-cloud-music-repeat-mode
-          (pcase netease-cloud-music-repeat-mode
-            ("off" "song")
-            ("song" "playlist")
-            ("playlist" "random")
-            ("random" "off")))
+          (if repeat-mode
+              repeat-mode
+            (pcase netease-cloud-music-repeat-mode
+              ("off" "song")
+              ("song" "playlist")
+              ("playlist" "random")
+              ("random" "off"))))
     (netease-cloud-music-tui-init)
     (netease-cloud-music-for-eaf
      :eaf-buffer
      (eaf-setq eaf-netease-cloud-music-repeat-mode
                netease-cloud-music-repeat-mode)
-     (eaf-call-sync "call_function" eaf--buffer-id "set_repeat_mode"))))
+     (eaf-call-sync "call_function_with_args" eaf--buffer-id
+                    "set_repeat_mode" netease-cloud-music-repeat-mode))))
 
 (defun netease-cloud-music-get-lyric (song-id)
   "Get the lyrics of the song whose id is SONG-ID."
@@ -735,7 +740,7 @@ SONG-ID is the song's id for current lyric."
     (setq netease-cloud-music-current-song
           `(,song-name ,artist-name ,song-id))
     (when (string= netease-cloud-music-repeat-mode "")
-      (setq netease-cloud-music-repeat-mode "song"))
+      (netease-cloud-music-change-repeat-mode "song"))
     (netease-cloud-music-start-lyric)
     (netease-cloud-music-tui-init)
     (netease-cloud-music-adjust-song-index)
@@ -753,11 +758,7 @@ SONG-ID is the song's id for current lyric."
   "Play the playlist songs."
   (interactive)
   (when (string= netease-cloud-music-repeat-mode "")
-    (setq netease-cloud-music-repeat-mode "playlist")
-    (netease-cloud-music-for-eaf
-     :eaf-buffer
-     (eaf-setq eaf-netease-cloud-music-repeat-mode "playlist")
-     (eaf-call-sync "call_function" eaf--buffer-id "set_repeat_mode")))
+    (netease-cloud-music-change-repeat-mode "playlist"))
   (let (current-song song)
     (when (and (ignore-errors
                  (eq (key-binding (read-kbd-macro (char-to-string last-input-event)))
@@ -1146,8 +1147,6 @@ INDEX is the song's index."
       (setq song-info (nth song-info (if netease-cloud-music-use-local-playlist
                                          netease-cloud-music-playlist
                                        netease-cloud-music-playlists-songs)))
-      (when (string= netease-cloud-music-repeat-mode "")
-        (setq netease-cloud-music-repeat-mode "song"))
       (netease-cloud-music-play (car song-info)
                                 (nth 1 song-info)
                                 (nth 3 song-info)))))
@@ -1872,8 +1871,6 @@ INDEX is the index of the song in search list."
             (netease-cloud-music-save-playlist))
         (netease-cloud-music--track t netease-cloud-music-playlist-id
                                     (car song-list)))
-      (when (string= netease-cloud-music-repeat-mode "")
-        (setq netease-cloud-music-repeat-mode "song"))
       (netease-cloud-music-play
        (car-safe song-list)
        (nth 1 song-list) (nth 3 song-list))
