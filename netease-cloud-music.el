@@ -1944,7 +1944,7 @@ INDEX is the index of the song in search list."
     (let (ids)
       (dolist (song (cdr netease-cloud-music-search-alist))
         (unless (alist-get (car song) netease-cloud-music-playlists-songs)
-          (setq ids (append ids (list (car song))))))
+          (setq ids (append (list (car song)) ids))))
       (netease-cloud-music--track t netease-cloud-music-playlist-id ids)))
   (if (get-buffer netease-cloud-music-buffer-name)
       (progn
@@ -1975,7 +1975,7 @@ PAGE is the pages info."
     (let (ids)
       (dolist (song (netease-cloud-music--songs-by-page page))
         (unless (alist-get (car song) netease-cloud-music-playlists-songs)
-          (setq ids (append ids (list (car song))))))
+          (setq ids (append (list (car song)) ids))))
       (netease-cloud-music--track t netease-cloud-music-playlist-id ids)))
   (if (get-buffer netease-cloud-music-buffer-name)
       (progn
@@ -2008,7 +2008,7 @@ INDEX is the index of the playlist in search list."
             (netease-cloud-music-save-playlist))
         (dolist (song (netease-cloud-music-get-playlist-songs playlist))
           (unless (alist-get (car song) netease-cloud-music-playlists-songs)
-            (setq ids (append ids (list (car song))))))
+            (setq ids (append (list (car song)) ids))))
         (netease-cloud-music--track t netease-cloud-music-playlist-id ids))
       (when (get-buffer netease-cloud-music-buffer-name)
         (netease-cloud-music-switch-close)
@@ -2081,7 +2081,7 @@ INDEX is the playlist's index."
               (netease-cloud-music-save-playlist))
           (dolist (song (netease-cloud-music-get-playlist-songs (cdr playlist)))
             (unless (alist-get (car song) netease-cloud-music-playlists-songs)
-              (setq ids (append ids (list (car song))))))))
+              (setq ids (append (list (car song)) ids))))))
       (when ids
         (netease-cloud-music--track t netease-cloud-music-playlist-id ids)))
     (if (get-buffer netease-cloud-music-buffer-name)
@@ -2171,7 +2171,7 @@ INDEX is the playlist's index."
           (netease-cloud-music-save-playlist))
       (let (ids)
         (dolist (song netease-cloud-music-storage)
-          (setq ids (append ids (list (car song)))))
+          (setq ids (append (list (car song)) ids)))
         (netease-cloud-music--track t netease-cloud-music-playlist-id ids)))
     (if (get-buffer netease-cloud-music-buffer-name)
         (progn
