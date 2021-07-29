@@ -716,24 +716,31 @@ SONG-ID is the song's id for current lyric."
   "Play the song by its SONG-ID and update the interface with SONG-NAME & ARTIST-NAME."
   (if (null song-id)
       (netease-cloud-music-error "There's no song-id!")
+    (when (stringp song-id)
+      (setq song-id (string-to-number song-id)))
     (netease-cloud-music-kill-process)
-    (setq netease-cloud-music-process
-          (start-process "netease-cloud-music-play:process"
-                         " *netease-cloud-music-play:process*"
-                         (car netease-cloud-music-player-command)
-                         (if netease-cloud-music-user-id
-                             (netease-cloud-music--song-url-by-user
-                              (if (stringp song-id)
-                                  (string-to-number song-id)
-                                song-id))
-                           (concat netease-cloud-music-song-link
-                                   (if (numberp song-id)
-                                       (number-to-string song-id)
-                                     song-id)))
-                         (if (string= (car netease-cloud-music-player-command)
-                                      "mpv")
-                             "--input-ipc-server=/tmp/mpvserver"
-                           "")))
+    (let (tmp)
+      (setq netease-cloud-music-process
+            (start-process "netease-cloud-music-play:process"
+                           " *netease-cloud-music-play:process*"
+                           (car netease-cloud-music-player-command)
+                           (if netease-cloud-music-user-id
+                               (if (setq tmp
+                                         (netease-cloud-music--song-url-by-user
+                                          song-id))
+                                   tmp
+                                 (message
+                                  "[Netease-Cloud-Music]: Cannot get the song's info %s, now play the next."
+                                  song-id)
+                                 (if (string= netease-cloud-music-repeat-mode "random")
+                                     (netease-cloud-music-random-play)
+                                   (netease-cloud-music-play-next-song)))
+                             (concat netease-cloud-music-song-link
+                                     (number-to-string song-id)))
+                           (if (string= (car netease-cloud-music-player-command)
+                                        "mpv")
+                               "--input-ipc-server=/tmp/mpvserver"
+                             ""))))
     (set-process-sentinel netease-cloud-music-process
                           'netease-cloud-music-process-sentinel)
     (netease-cloud-music-lyric-init song-id)
