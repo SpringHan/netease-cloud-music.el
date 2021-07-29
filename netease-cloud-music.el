@@ -2102,24 +2102,46 @@ INDEX is the playlist's index."
                    (if (get-buffer netease-cloud-music-buffer-name)
                        (nth (if (setq tmp (netease-cloud-music--current-song))
                                 tmp
-                              (throw 'result nil))
+                              (throw 'result
+                                     (if (string= (completing-read "Do you want to add: "
+                                                                   '("current song" "all"))
+                                                  "all")
+                                         'all
+                                       nil)))
                             (if netease-cloud-music-use-local-playlist
                                 netease-cloud-music-playlist
                               netease-cloud-music-playlists-songs))
-                     (nth (1- (if (string= (setq tmp (read-string "Enter the song's index: "))
-                                           "")
-                                  (throw 'result nil)
-                                (string-to-number tmp)))
+                     (nth (1- (cond ((string=
+                                      (setq tmp
+                                            (read-string "Enter the song's index(or input all): "))
+                                      "")
+                                     (throw 'result nil))
+                                    ((string= tmp "all")
+                                     (throw 'result 'all))
+                                    (t (string-to-number tmp))))
                           (if netease-cloud-music-use-local-playlist
                               netease-cloud-music-playlist
                             netease-cloud-music-playlists-songs)))))))
   (if (null song)
       (netease-cloud-music-storage-current-song)
+    (if (eq song 'all)
+        (netease-cloud-music-storage-current-playlist)
+      (unless (netease-cloud-music--memeq song netease-cloud-music-storage)
+        (setq netease-cloud-music-storage
+              (append netease-cloud-music-storage
+                      (list song)))
+        (message "[Netease-Cloud-Music]: Added the song into storage.")))))
+
+(defun netease-cloud-music-storage-current-playlist ()
+  "Storage current playlist."
+  (dolist (song (if netease-cloud-music-use-local-playlist
+                    netease-cloud-music-playlist
+                  netease-cloud-music-playlists-songs))
     (unless (netease-cloud-music--memeq song netease-cloud-music-storage)
       (setq netease-cloud-music-storage
             (append netease-cloud-music-storage
-                    (list song)))
-      (message "[Netease-Cloud-Music]: Added the song into storage."))))
+                    (list song)))))
+  (message "[Netease-Cloud-Music]: Added current playlist to storage."))
 
 (defun netease-cloud-music-storage-current-song ()
   "Storage current playing song."
