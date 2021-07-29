@@ -1263,24 +1263,25 @@ If HINT is not non-nil, show the hint message."
 
 (defun netease-cloud-music-get-song-detail (ids)
   "Get the songs' info by their IDS."
-  (let ((song-info (netease-api-request
-                    (format "song/detail?ids=%s"
-                            (netease-cloud-music--list-to-splited-string
-                             ids))))
-        result songs song artist)
-    (if (or (null song-info)
-            (/= 200 (alist-get 'code song-info)))
-        (netease-cloud-music-error "To get songs info failed!")
-      (setq songs (alist-get 'songs song-info))
-      (dotimes (n (length songs))
-        (setq song (aref songs n)
-              artist (aref (alist-get 'ar song) 0))
-        (setq result (append result
-                             (list (list (alist-get 'id song)
-                                         (alist-get 'name song)
-                                         (alist-get 'id artist)
-                                         (alist-get 'name artist))))))
-      result)))
+  (when ids
+    (let ((song-info (netease-api-request
+                      (format "song/detail?ids=%s"
+                              (netease-cloud-music--list-to-splited-string
+                               ids))))
+          result songs song artist)
+      (if (or (null song-info)
+              (/= 200 (alist-get 'code song-info)))
+          (netease-cloud-music-error "To get songs info failed!")
+        (setq songs (alist-get 'songs song-info))
+        (dotimes (n (length songs))
+          (setq song (aref songs n)
+                artist (aref (alist-get 'ar song) 0))
+          (setq result (append result
+                               (list (list (alist-get 'id song)
+                                           (alist-get 'name song)
+                                           (alist-get 'id artist)
+                                           (alist-get 'name artist))))))
+        result))))
 
 (defun netease-cloud-music-get-user-playlist (uid)
   "Get the playlists of the user whose user id is UID."
