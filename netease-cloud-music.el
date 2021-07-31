@@ -714,53 +714,57 @@ SONG-ID is the song's id for current lyric."
 
 (defun netease-cloud-music-play (song-id song-name artist-name)
   "Play the song by its SONG-ID and update the interface with SONG-NAME & ARTIST-NAME."
-  (if (null song-id)
-      (netease-cloud-music-error "There's no song-id!")
-    (when (stringp song-id)
-      (setq song-id (string-to-number song-id)))
-    (netease-cloud-music-kill-process)
-    (let (tmp)
-      (setq netease-cloud-music-process
-            (start-process "netease-cloud-music-play:process"
-                           " *netease-cloud-music-play:process*"
-                           (car netease-cloud-music-player-command)
-                           (if netease-cloud-music-user-id
-                               (if (setq tmp
-                                         (netease-cloud-music--song-url-by-user
-                                          song-id))
-                                   tmp
-                                 (message
-                                  "[Netease-Cloud-Music]: Cannot get the song's info %s, now play the next."
-                                  song-id)
-                                 (if (string= netease-cloud-music-repeat-mode "random")
-                                     (netease-cloud-music-random-play)
-                                   (netease-cloud-music-play-next-song)))
-                             (concat netease-cloud-music-song-link
-                                     (number-to-string song-id)))
-                           (if (string= (car netease-cloud-music-player-command)
-                                        "mpv")
-                               "--input-ipc-server=/tmp/mpvserver"
-                             ""))))
-    (set-process-sentinel netease-cloud-music-process
-                          'netease-cloud-music-process-sentinel)
-    (netease-cloud-music-lyric-init song-id)
-    (setq netease-cloud-music-process-status "playing")
-    (setq netease-cloud-music-current-song
-          `(,song-name ,artist-name ,song-id))
-    (when (string= netease-cloud-music-repeat-mode "")
-      (netease-cloud-music-change-repeat-mode "song"))
-    (netease-cloud-music-start-lyric)
-    (netease-cloud-music-tui-init)
-    (netease-cloud-music-adjust-song-index)
-    (netease-cloud-music-for-eaf
-     :eaf-buffer
-     (eaf-setq eaf-netease-cloud-music-play-status "playing")
-     (eaf-setq eaf-netease-cloud-music-current-song+list (list song-name artist-name))
-     (eaf-call-sync "call_function_with_args" eaf--buffer-id
-                    "set_panel_song" song-name artist-name)
-     (eaf-call-sync "call_function_with_args" eaf--buffer-id
-                    "update_play_status" "playing")
-     (eaf--netease-cloud-music--update-song-style))))
+  (catch 'stop
+    (if (null song-id)
+        (netease-cloud-music-error "There's no song-id!")
+      (when (stringp song-id)
+        (setq song-id (string-to-number song-id)))
+      (netease-cloud-music-kill-process)
+      (let (tmp)
+        (setq netease-cloud-music-process
+              (start-process "netease-cloud-music-play:process"
+                             " *netease-cloud-music-play:process*"
+                             (car netease-cloud-music-player-command)
+                             (if netease-cloud-music-user-id
+                                 (if (setq tmp
+                                           (netease-cloud-music--song-url-by-user
+                                            song-id))
+                                     tmp
+                                   (message
+                                    "[Netease-Cloud-Music]: Cannot get the song's info %s: %s, now play the next."
+                                    song-id song-name)
+                                   (if (string= netease-cloud-music-repeat-mode "random")
+                                       (netease-cloud-music-random-play)
+                                     (netease-cloud-music-play-next-song
+                                      (netease-cloud-music-adjust-song-index
+                                       (list song-name artist-name song-id))))
+                                   (throw 'stop nil))
+                               (concat netease-cloud-music-song-link
+                                       (number-to-string song-id)))
+                             (if (string= (car netease-cloud-music-player-command)
+                                          "mpv")
+                                 "--input-ipc-server=/tmp/mpvserver"
+                               ""))))
+      (set-process-sentinel netease-cloud-music-process
+                            'netease-cloud-music-process-sentinel)
+      (netease-cloud-music-lyric-init song-id)
+      (setq netease-cloud-music-process-status "playing")
+      (setq netease-cloud-music-current-song
+            `(,song-name ,artist-name ,song-id))
+      (when (string= netease-cloud-music-repeat-mode "")
+        (netease-cloud-music-change-repeat-mode "song"))
+      (netease-cloud-music-start-lyric)
+      (netease-cloud-music-tui-init)
+      (netease-cloud-music-adjust-song-index)
+      (netease-cloud-music-for-eaf
+       :eaf-buffer
+       (eaf-setq eaf-netease-cloud-music-play-status "playing")
+       (eaf-setq eaf-netease-cloud-music-current-song+list (list song-name artist-name))
+       (eaf-call-sync "call_function_with_args" eaf--buffer-id
+                      "set_panel_song" song-name artist-name)
+       (eaf-call-sync "call_function_with_args" eaf--buffer-id
+                      "update_play_status" "playing")
+       (eaf--netease-cloud-music--update-song-style)))))
 
 (defun netease-cloud-music-playlist-play ()
   "Play the playlist songs."
@@ -826,13 +830,19 @@ EVENT is the event trigger sentinel."
         (setq netease-cloud-music-playlist-song-index previous-song-index))
       (netease-cloud-music-playlist-play))))
 
-(defun netease-cloud-music-play-next-song ()
-  "Play the next song in the playlist."
+(defun netease-cloud-music-play-next-song (&optional force)
+  "Play the next song in the playlist.
+If FORCE is non-nil, forcly play the next song.
+And it's must be a song's index."
   (interactive)
-  (if (string= netease-cloud-music-process-status "")
+  (if (and (string= netease-cloud-music-process-status "")
+           (null force))
       (forward-line)
     (let ((next-song-index
-           (+ netease-cloud-music-playlist-song-index 1)))
+           (+ (if force
+                  force
+                netease-cloud-music-playlist-song-index)
+              1)))
       (if (null (nth next-song-index (if netease-cloud-music-use-local-playlist
                                          netease-cloud-music-playlist
                                        netease-cloud-music-playlists-songs)))
@@ -1126,16 +1136,25 @@ INDEX is the song's index."
          netease-cloud-music-playlist-id tmp))
       (netease-cloud-music-tui-init))))
 
-(defun netease-cloud-music-adjust-song-index ()
-  "Adjust the current song's index."
-  (let ((index (when netease-cloud-music-current-song
-                 (netease-cloud-music--current-song netease-cloud-music-current-song))))
-    (when index
-      (setq netease-cloud-music-playlist-song-index index)
-      (netease-cloud-music-for-eaf
-       :eaf-buffer
-       (eaf-call-sync "call_function_with_args" eaf--buffer-id
-                      "change_song_style" netease-cloud-music-playlist-song-index)))))
+(defun netease-cloud-music-adjust-song-index (&optional get)
+  "Adjust the current song's index.
+If GET is non-nil, it just return the index.
+The format of GET is same as `netease-cloud-music-current-song'."
+  (let* ((song-info (cond (get get)
+                          (netease-cloud-music-current-song
+                           netease-cloud-music-current-song)
+                          (t nil)))
+         (index (when song-info
+                  (netease-cloud-music--current-song song-info))))
+    (if (and index
+             (null get))
+        (progn
+          (setq netease-cloud-music-playlist-song-index index)
+          (netease-cloud-music-for-eaf
+           :eaf-buffer
+           (eaf-call-sync "call_function_with_args" eaf--buffer-id
+                          "change_song_style" netease-cloud-music-playlist-song-index)))
+      index)))
 
 (defun netease-cloud-music-ask-play (song)
   "Play the SONG by asking."
@@ -1418,7 +1437,6 @@ NO-ERROR means to close error signal."
         :sync t)
       (if (/= 200 (alist-get 'code login-result))
           (netease-cloud-music-error "Phone number or password is error!")
-        (print login-result)
         (setq netease-cloud-music-user-id (alist-get 'id (alist-get 'account login-result))
               netease-cloud-music-username (alist-get 'nickname (alist-get 'profile login-result))
               netease-cloud-music-user-password password
