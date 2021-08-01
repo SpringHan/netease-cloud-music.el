@@ -505,12 +505,6 @@ Otherwise return nil."
     (switch-to-buffer netease-cloud-music-last-buffer)
     (setq netease-cloud-music-last-buffer nil)))
 
-(defmacro netease-cloud-music-expand-form (&rest form)
-  "Expand FORM in function-form."
-  `(cl-function
-    (lambda (&key data &allow-other-keys)
-      ,@form)))
-
 (defun netease-cloud-music-search-song (&optional song-name)
   "Search SONG-NAME from Netease Music and return the song id.
 SONG-NAME is a string."
@@ -1339,15 +1333,6 @@ If HINT is not non-nil, show the hint message."
                                 netease-cloud-music-playlist
                               netease-cloud-music-playlists-songs)))))
   (netease-cloud-music-playlist-play))
-
-(defmacro netease-cloud-music--api-func (action)
-  "Call the function which is matched with `netease-cloud-music--.*-api-.*'.
-ACTION is its function."
-  (let* ((sfunc (format "netease-cloud-music--%s-api-%s"
-                        (symbol-name action)
-                        (symbol-name netease-cloud-music-api-type)))
-         (func (intern sfunc)))
-    `(,func)))
 
 (defun netease-cloud-music--start-api-npm ()
   "Start API by using npm."

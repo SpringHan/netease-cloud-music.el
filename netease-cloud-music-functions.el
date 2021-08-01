@@ -40,6 +40,63 @@ docker: use docker to start the api."
   :type '(choice (const :tag "Native" native)
                  (const :tag "Docker" docker)))
 
+(eval-and-compile
+  (defmacro netease-api-defun (name arg &optional docstring &rest body)
+    "Like `defun', but it will check the third-party api's status first.
+NAME is the function's name.
+ARG is the arguments for function.
+DOCSTRING is the doc-string for the function.
+BODY is the main codes for the function."
+    (declare (indent defun)
+             (debug defun)
+             (doc-string 3))
+    `(defun ,name ,arg
+       ,(when docstring
+          docstring)
+       ,(when (equal (car (car body)) 'interactive)
+          (prog1 (car body)
+            (pop body)))
+       (if (not (or (not (netease-cloud-music--api-need-downloaded))
+                    (netease-cloud-music--api-downloaded))) ; = !(x -> y)
+           (netease-cloud-music-error "The third-party API has not been donwloaded!")
+         ,@body)))
+
+  (defmacro netease-cloud-music-for-eaf (&rest body)
+    "The macro for eaf.  BODY is the Lisp you want to execute."
+    (let ((with-eaf-buffer (eq (car body) :eaf-buffer)))
+      (when with-eaf-buffer
+        (pop body))
+      `(when (get-buffer "eaf-netease-cloud-music")
+         ,(if with-eaf-buffer
+              `(with-current-buffer "eaf-netease-cloud-music"
+                 ,@body)
+            `(eval ,@body)))))
+
+  (defmacro netease-cloud-music-eaf-defun (name args &rest body)
+    "If the NAME function is not exists, define it.
+ARGS is the arguments.
+BODY is the body of the function."
+    (declare (indent defun))
+    (unless (or (functionp (symbol-function name))
+                (macrop (symbol-function name)))
+      `(defun ,name ,args
+         ,@body)))
+
+  (defmacro netease-cloud-music-expand-form (&rest form)
+    "Expand FORM in function-form."
+    `(cl-function
+      (lambda (&key data &allow-other-keys)
+        ,@form)))
+  
+  (defmacro netease-cloud-music--api-func (action)
+    "Call the function which is matched with `netease-cloud-music--.*-api-.*'.
+ACTION is its function."
+    (let* ((sfunc (format "netease-cloud-music--%s-api-%s"
+                          (symbol-name action)
+                          (symbol-name netease-cloud-music-api-type)))
+           (func (intern sfunc)))
+      `(,func))))
+
 (defun netease-cloud-music-get-loginfo ()
   "Get login info."
   (when (file-exists-p netease-cloud-music-user-loginfo-file)
@@ -271,26 +328,6 @@ ELE is a list."
   (and netease-cloud-music-api-process
        (process-live-p netease-cloud-music-api-process)))
 
-(defmacro netease-api-defun (name arg &optional docstring &rest body)
-  "Like `defun', but it will check the third-party api's status first.
-NAME is the function's name.
-ARG is the arguments for function.
-DOCSTRING is the doc-string for the function.
-BODY is the main codes for the function."
-  (declare (indent defun)
-           (debug defun)
-           (doc-string 3))
-  `(defun ,name ,arg
-     ,(when docstring
-        docstring)
-     ,(when (equal (car (car body)) 'interactive)
-        (prog1 (car body)
-          (pop body)))
-     (if (not (or (not (netease-cloud-music--api-need-downloaded))
-                  (netease-cloud-music--api-downloaded))) ; = !(x -> y)
-         (netease-cloud-music-error "The third-party API has not been donwloaded!")
-       ,@body)))
-
 (defun netease-api-request (url)
   "Request with the user info.
 URL is the url to request."
@@ -358,17 +395,6 @@ If the item is exists, return the cons."
       (setq text (concat text tmp)))
     text))
 
-(defmacro netease-cloud-music-for-eaf (&rest body)
-  "The macro for eaf.  BODY is the Lisp you want to execute."
-  (let ((with-eaf-buffer (eq (car body) :eaf-buffer)))
-    (when with-eaf-buffer
-      (pop body))
-    `(when (get-buffer "eaf-netease-cloud-music")
-       ,(if with-eaf-buffer
-            `(with-current-buffer "eaf-netease-cloud-music"
-               ,@body)
-          `(eval ,@body)))))
-
 (defun netease-cloud-music--get-lyric-time (lyric)
   "Get the LYRIC's time."
   (let (min sec)
@@ -393,16 +419,6 @@ If the item is exists, return the cons."
       (string-to-number
        (concat sec "." (substring msec
                                   0 2))))))
-
-(defmacro netease-cloud-music-eaf-defun (name args &rest body)
-  "If the NAME function is not exists, define it.
-ARGS is the arguments.
-BODY is the body of the function."
-  (declare (indent defun))
-  (unless (or (functionp (symbol-function name))
-               (macrop (symbol-function name)))
-    `(defun ,name ,args
-       ,@body)))
 
 (netease-cloud-music-eaf-defun eaf-setq (&rest args)
   args)
