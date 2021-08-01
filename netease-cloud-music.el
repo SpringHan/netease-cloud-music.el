@@ -1526,7 +1526,7 @@ ID is the song's id."
                  (netease-cloud-music-for-eaf
                   :eaf-buffer
                   (prog2 (eaf-call-sync "call_function_with_args" eaf--buffer-id
-                                        "set_index_style" t)
+                                        "set_index_style" "true")
                       (- (read-number "Enter the playlist's index: ") 2)
                     (eaf-call-sync "call_function_with_args" eaf--buffer-id
                                    "set_index_style" "false"))))))
@@ -1603,12 +1603,12 @@ NAME is its name."
       (netease-cloud-music-for-eaf
        :eaf-buffer
        (eaf-call-sync "call_function_with_args" eaf--buffer-id
-                      "set_index_style" t)
+                      "set_index_style" "true")
        (let* ((index (- (read-number "Enter the playlist index: ") 2)) ;The index include local playlist, so minus 2.
               (playlist (nth index netease-cloud-music-playlists)))
          (setq pid (cdr-safe playlist)))
        (eaf-call-sync "call_function_with_args" eaf--buffer-id
-                      "set_index_style" "False")))
+                      "set_index_style" "false")))
     (setq name (read-string "Enter the new name: ")))
   (netease-cloud-music-update-playlist-name pid name)
   (netease-cloud-music-tui-init))
