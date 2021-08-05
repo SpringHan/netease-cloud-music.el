@@ -736,8 +736,9 @@ SONG-ID is the song's id for current lyric."
                                    (throw 'stop nil))
                                (concat netease-cloud-music-song-link
                                        (number-to-string song-id)))
-                             (if (string= (car netease-cloud-music-player-command)
-                                          "mpv")
+                             (if (string-prefix-p
+                                  (car netease-cloud-music-player-command)
+                                  "mpv")
                                  "--input-ipc-server=/tmp/mpvserver"
                                ""))))
       (set-process-sentinel netease-cloud-music-process
@@ -889,9 +890,12 @@ FORCE means to forcely kill it."
   (when (netease-cloud-music-process-live-p)
     (if (string= "mpv" (car netease-cloud-music-player-command))
         (progn
-          (shell-command (concat "echo '"
-                                 (nth 2 netease-cloud-music-player-command)
-                                 "' | socat - /tmp/mpvserver")
+          (shell-command (format
+                          "echo '%s' | socat%s - /tmp/mpvserver"
+                          (nth 2 netease-cloud-music-player-command)
+                          (if (eq system-type 'windows-nt)
+                              ".exe"
+                            ""))
                          "*shell-output*" nil)
           (when (get-buffer "*shell-output*")
             (kill-buffer "*shell-output*")))
@@ -905,9 +909,12 @@ FORCE means to forcely kill it."
   (when (netease-cloud-music-process-live-p)
     (if (string= "mpv" (car netease-cloud-music-player-command))
         (progn
-          (shell-command (concat "echo '"
-                                 (nth 3 netease-cloud-music-player-command)
-                                 "' | socat - /tmp/mpvserver")
+          (shell-command (format
+                          "echo '%s' | socat%s - /tmp/mpvserver"
+                          (nth 2 netease-cloud-music-player-command)
+                          (if (eq system-type 'windows-nt)
+                              ".exe"
+                            ""))
                          "*shell-output*" nil)
           (when (get-buffer "*shell-output*")
             (kill-buffer "*shell-output*")))
