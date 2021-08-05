@@ -101,7 +101,9 @@
      这个函数的值包括：播放器的命令、继续播放的进程信息、停止播放的进程信息、快进进程信息、快退进程信息。
 
      默认值： ~'("mpv" "pause\n" "seek 5" "seek -5")~
-     
+
+     如果你是 Windows 系统用户，播放器命令后应加上 ~.exe~ ，示例： ~"mpv.exe"~
+
      更多可用的命令[[https://github.com/SpringHan/netease-cloud-music.el/issues/3][见这里]].
 
      如果你使用 ~mplayer~ 作为你的音乐播放器，那么你不需要花时间配置这个变量。
@@ -115,6 +117,10 @@
    - ~netease-cloud-music-buffer-name~ (String)
 
      你可以通过改变这个变量的值从而设置网易云音乐的buffer。默认值：~"*Netease-Cloud-Music*"~
+
+   - ~netease-cloud-music-process-file~ (String)
+
+     此变量专为 Windows 用户所定义，当用户播放器是 ~mpv~ 时，需要设置这个变量作为进程文件，便于供 ~socat~ 对其进行控制
 
 ** 注意
    1. 本客户端初次启动歌单空是正常情况，添加歌曲或者登陆之后便有歌曲可听。

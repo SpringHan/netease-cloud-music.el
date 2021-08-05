@@ -219,6 +219,11 @@ If it's t, meaning to use the local playlist."
   :type 'boolean
   :group 'netease-cloud-music)
 
+(defcustom netease-cloud-music-process-file nil
+  "The process file for player."
+  :type 'string
+  :group 'netease-cloud-music)
+
 (defcustom netease-cloud-music-write-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-c C-c") 'netease-cloud-music-write-finish)
@@ -880,11 +885,15 @@ FORCE means to forcely kill it."
     (if (string= "mpv" (car netease-cloud-music-player-command))
         (progn
           (shell-command (format
-                          "echo '%s' | socat%s - /tmp/mpvserver"
+                          "echo '%s' | socat%s - %s/mpvserver"
                           (nth 2 netease-cloud-music-player-command)
                           (if (eq system-type 'windows-nt)
                               ".exe"
-                            ""))
+                            "")
+                          (if (eq system-type 'windows-nt)
+                              (or netease-cloud-music-process-file
+                                  "~/")
+                            "/tmp"))
                          "*shell-output*" nil)
           (when (get-buffer "*shell-output*")
             (kill-buffer "*shell-output*")))
@@ -899,11 +908,15 @@ FORCE means to forcely kill it."
     (if (string= "mpv" (car netease-cloud-music-player-command))
         (progn
           (shell-command (format
-                          "echo '%s' | socat%s - /tmp/mpvserver"
+                          "echo '%s' | socat%s - %s/mpvserver"
                           (nth 2 netease-cloud-music-player-command)
                           (if (eq system-type 'windows-nt)
                               ".exe"
-                            ""))
+                            "")
+                          (if (eq system-type 'windows-nt)
+                              (or netease-cloud-music-process-file
+                                  "~/")
+                            "/tmp"))
                          "*shell-output*" nil)
           (when (get-buffer "*shell-output*")
             (kill-buffer "*shell-output*")))
