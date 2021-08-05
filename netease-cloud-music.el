@@ -85,11 +85,6 @@
   :type 'buffer
   :group 'netease-cloud-music)
 
-(defcustom netease-cloud-music-api-port "3000"
-  "The port for the API process."
-  :type 'string
-  :group 'netease-cloud-music)
-
 (defcustom netease-cloud-music-api-repo
   "https://github.com/SpringHan/NeteaseCloudMusicApi.git"
   "The git repo for ncm api.
@@ -292,14 +287,8 @@ If it's t, meaning to use the local playlist."
 (defvar netease-cloud-music-search-limit 10
   "The search limit for Netease Cloud Music.")
 
-(defvar netease-cloud-music-phone nil
-  "Phone number.")
-
 (defvar netease-cloud-music-username nil
   "Username.")
-
-(defvar netease-cloud-music-user-password nil
-  "Password.")
 
 (defvar netease-cloud-music-user-id nil
   "User ID.")
@@ -2253,6 +2242,152 @@ REFRESH means to refresh the storage."
   (interactive)
   (when (yes-or-no-p "Do you really want to clear storage?")
     (setq netease-cloud-music-storage nil)))
+
+;;; Basic functions
+
+(defun netease-cloud-music-get-loginfo ()
+  "Get login info."
+  (when (file-exists-p netease-cloud-music-user-loginfo-file)
+    (let* ((content (split-string
+                     (with-temp-buffer
+                       (insert-file-contents netease-cloud-music-user-loginfo-file)
+                       (buffer-string))
+                     "\n" t))
+           (phone (cons (car content) (nth 1 content)))
+           (password (nth 2 content)))
+      (cons phone password))))
+
+(defun netease-cloud-music-save-loginfo (loginfo)
+  "Save login info.  LOGINFO is the info."
+  (unless (file-exists-p netease-cloud-music-user-loginfo-file)
+    (make-empty-file netease-cloud-music-user-loginfo-file))
+  (with-temp-file netease-cloud-music-user-loginfo-file
+    (erase-buffer)
+    (insert (car (car loginfo)) ;Countrycode
+            "\n"
+            (cdr (car loginfo)) ;Phone number
+            "\n"
+            (cdr loginfo))))          ;Password
+
+(defun netease-cloud-music-request-from-api (content &optional type limit)
+  "Request the CONTENT from Netease Music API.
+
+CONTENT is a string.
+
+TYPE is a symbol, its value can be song.
+
+LIMIT is the limit for the search result, it's a number."
+  (when (null type) (setq type 'song))
+  (when (null limit) (setq limit "1"))
+  (let (result search-type)
+    ;; result type
+    (pcase type
+      ('song (setq search-type "1"))
+      ('playlist (setq search-type "1000")))
+    (when (numberp limit)
+      (setq limit (number-to-string limit)))
+    (request
+      netease-cloud-music-search-api
+      :type "POST"
+      :data `(("s" . ,content)
+              ("limit" . ,limit)
+              ("type" . ,search-type)
+              ("offset" . "0"))
+      :parser 'json-read
+      :success (netease-cloud-music-expand-form (setq result data))
+      :sync t)
+    result))
+
+(defun netease-cloud-music--songs-by-page (page-string)
+  "Get the songs list by the page limit.
+PAGE-STRING is the string that includes the two pages."
+  (let (start end search-result)
+    (progn
+      (string-match "\\(.*\\)-\\(.*\\)" page-string)
+      (setq start (match-string 1 page-string)
+            end (match-string 2 page-string)))
+    (when (and start end)
+      (setq start (* netease-cloud-music-search-limit (1- (string-to-number start)))
+            end (* netease-cloud-music-search-limit (string-to-number end)))
+      (setq search-result
+            (netease-cloud-music-get-song
+             (netease-cloud-music-request-from-api
+              (car netease-cloud-music-search-alist)
+              nil end)))
+      (when search-result
+        (setq search-result
+              (netease-cloud-music--catch nil search-result start t))))))
+
+(defun netease-cloud-music--get-song-list (name artist)
+  "Get the song-info list by its NAME and ARTIST."
+  (when (cdr-safe netease-cloud-music-search-alist)
+    (catch 'result
+      (dolist (song-list (cdr netease-cloud-music-search-alist))
+        (when (and (string= name (nth 1 song-list))
+                   (string= artist (nth 3 song-list)))
+          (throw 'result song-list))))))
+
+(defun netease-cloud-music--catch (all list &optional index-limit no-result-limit)
+  "Catch the song list or playlists by ALL length in LIST.
+INDEX-LIMIT is the start of the song-list or playlists.
+NO-RESULT-LIMIT means do not limit the catch."
+  (let ((index (if index-limit
+                   index-limit
+                 (- all netease-cloud-music-search-limit)))
+        result)
+    (if no-result-limit
+        (progn
+          (setq result list)
+          (dotimes (_ index)
+            (pop result)))
+      (dotimes (_ netease-cloud-music-search-limit)
+        (setq result (append result (list (nth index list))))
+        (setq index (1+ index))))
+    result))
+
+(defun netease-cloud-music--current-song (&optional song-info)
+  "Get the current song at point.
+If SONG-INFO is non-nil, get its song info."
+  (let ((song (cond ((stringp song-info)
+                     song-info)
+                    (song-info nil)
+                    (t (substring (thing-at-point 'line) 0 -1))))
+        (index 0)
+        name artist)
+    (if (or (null song-info)
+            (stringp song-info))
+        (ignore-errors
+          (progn
+            (string-match "\\(.*\\) - \\(.*\\)" song)
+            (setq name (match-string 1 song)
+                  artist (match-string 2 song))))
+      (setq name (car song-info)
+            artist (nth 1 song-info)))
+    (when (and name artist)
+      (catch 'song-list
+        (dolist (song-info (if netease-cloud-music-use-local-playlist
+                               netease-cloud-music-playlist
+                             netease-cloud-music-playlists-songs))
+          (when (and (string= name (nth 1 song-info))
+                     (string= artist (nth 3 song-info)))
+            (throw 'song-list index))
+          (setq index (1+ index)))))))
+
+(defun netease-cloud-music--append (ele)
+  "Append ELE to `netease-cloud-music-playlist'.
+ELE is a list."
+  (dolist (item ele)
+    (add-to-list 'netease-cloud-music-playlist item t 'equal)))
+
+(defun netease-cloud-music--api-downloaded ()
+  "Check if the third-party API has been downloaded."
+  (and (file-exists-p netease-cloud-music-api-dir)
+       (> (length (directory-files netease-cloud-music-api-dir)) 2)))
+
+(defun netease-cloud-music-api-process-live-p ()
+  "Check if the third-party API process is live."
+  (and netease-cloud-music-api-process
+       (process-live-p netease-cloud-music-api-process)))
 
 (provide 'netease-cloud-music)
 
