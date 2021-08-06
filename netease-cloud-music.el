@@ -735,10 +735,7 @@ SONG-ID is the song's id for current lyric."
                                   "mpv")
                                  (format
                                   "--input-ipc-server=%s/mpvserver"
-                                  (if (eq system-type 'windows-nt)
-                                      (or netease-cloud-music-process-file
-                                          "~")
-                                    "/tmp"))
+                                  (netease-cloud-music--format-process-file))
                                ""))))
       (set-process-sentinel netease-cloud-music-process
                             'netease-cloud-music-process-sentinel)
@@ -895,10 +892,7 @@ FORCE means to forcely kill it."
                           (if (eq system-type 'windows-nt)
                               ".exe"
                             "")
-                          (if (eq system-type 'windows-nt)
-                              (or netease-cloud-music-process-file
-                                  "~/")
-                            "/tmp"))
+                          (netease-cloud-music--format-process-file))
                          "*shell-output*" nil)
           (when (get-buffer "*shell-output*")
             (kill-buffer "*shell-output*")))
@@ -914,14 +908,11 @@ FORCE means to forcely kill it."
         (progn
           (shell-command (format
                           "echo '%s' | socat%s - %s/mpvserver"
-                          (nth 2 netease-cloud-music-player-command)
+                          (nth 3 netease-cloud-music-player-command)
                           (if (eq system-type 'windows-nt)
                               ".exe"
                             "")
-                          (if (eq system-type 'windows-nt)
-                              (or netease-cloud-music-process-file
-                                  "~/")
-                            "/tmp"))
+                          (netease-cloud-music--format-process-file))
                          "*shell-output*" nil)
           (when (get-buffer "*shell-output*")
             (kill-buffer "*shell-output*")))
@@ -2406,6 +2397,20 @@ ELE is a list."
   "Check if the third-party API process is live."
   (and netease-cloud-music-api-process
        (process-live-p netease-cloud-music-api-process)))
+
+(defun netease-cloud-music--format-process-file ()
+  "Format the process file."
+  (if (eq system-type 'windows-nt)
+      (if netease-cloud-music-process-file
+          (progn
+            (when (string-suffix-p "/"
+                                   netease-cloud-music-process-file)
+              (setq netease-cloud-music-process-file
+                    (substring netease-cloud-music-process-file
+                               0 -1)))
+            netease-cloud-music-process-file)
+        "~")
+    "/tmp"))
 
 (provide 'netease-cloud-music)
 
