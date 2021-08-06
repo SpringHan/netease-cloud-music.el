@@ -733,7 +733,12 @@ SONG-ID is the song's id for current lyric."
                              (if (string-prefix-p
                                   (car netease-cloud-music-player-command)
                                   "mpv")
-                                 "--input-ipc-server=/tmp/mpvserver"
+                                 (format
+                                  "--input-ipc-server=%s/mpvserver"
+                                  (if (eq system-type 'windows-nt)
+                                      (or netease-cloud-music-process-file
+                                          "~")
+                                    "/tmp"))
                                ""))))
       (set-process-sentinel netease-cloud-music-process
                             'netease-cloud-music-process-sentinel)
@@ -751,9 +756,9 @@ SONG-ID is the song's id for current lyric."
        (setq eaf-netease-cloud-music-play-status "playing")
        (setq eaf-netease-cloud-music-current-song+list (list song-name artist-name))
        (eaf-call-async "call_function_with_args" eaf--buffer-id
-                      "set_panel_song" song-name artist-name)
+                       "set_panel_song" song-name artist-name)
        (eaf-call-async "call_function_with_args" eaf--buffer-id
-                      "update_play_status" "playing")
+                       "update_play_status" "playing")
        (eaf--netease-cloud-music--update-song-style)))))
 
 (defun netease-cloud-music-playlist-play ()
