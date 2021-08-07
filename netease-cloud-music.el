@@ -539,7 +539,7 @@ When REPEAT-MODE is non-nil, set current repeat mode to it."
     (netease-cloud-music-for-eaf
      :eaf-buffer
      (setq eaf-netease-cloud-music-repeat-mode
-               netease-cloud-music-repeat-mode)
+           netease-cloud-music-repeat-mode)
      (eaf-call-async "call_function_with_args" eaf--buffer-id
                      "set_repeat_mode" netease-cloud-music-repeat-mode))))
 
@@ -660,7 +660,8 @@ SONG-ID is the song's id for current lyric."
                                     current-song-time)))
                          (setq current-lyric (netease-cloud-music--current-lyric
                                               (car netease-cloud-music-tlyric)))
-                         (setq netease-cloud-music-translated-lyric current-lyric)
+                         (unless (string= current-lyric "")
+                           (setq netease-cloud-music-translated-lyric current-lyric))
                          (setq netease-cloud-music-tlyric (cdr netease-cloud-music-tlyric))))))
                (netease-cloud-music-cancel-timer)))))
 
@@ -725,12 +726,10 @@ SONG-ID is the song's id for current lyric."
                                    (throw 'stop nil))
                                (concat netease-cloud-music-song-link
                                        (number-to-string song-id)))
-                             (if (string-prefix-p
+                             (if (string=
                                   (car netease-cloud-music-player-command)
                                   "mpv")
-                                 (format
-                                  "--input-ipc-server=%smpvserver"
-                                  (netease-cloud-music--format-process-file))
+                                 "--input-ipc-server=/tmp/mpvserver"
                                ""))))
       (set-process-sentinel netease-cloud-music-process
                             'netease-cloud-music-process-sentinel)
@@ -857,9 +856,9 @@ And it's must be a song's index."
     (netease-cloud-music-for-eaf
      :eaf-buffer
      (setq eaf-netease-cloud-music-play-status
-               (if (string= netease-cloud-music-process-status "paused")
-                   "paused"
-                 "playing"))
+           (if (string= netease-cloud-music-process-status "paused")
+               "paused"
+             "playing"))
      (eaf-call-async "call_function_with_args" eaf--buffer-id
                      "update_play_status" (if (string= netease-cloud-music-process-status "paused")
                                               "paused"
@@ -881,13 +880,14 @@ FORCE means to forcely kill it."
   (when (netease-cloud-music-process-live-p)
     (if (string= "mpv" (car netease-cloud-music-player-command))
         (progn
+          ;; (shell-command (format
+          ;;                 "echo '%s' | socat - %smpvserver"
+          ;;                 (nth 2 netease-cloud-music-player-command)
+          ;;                 (netease-cloud-music--format-process-file))
+          ;;                "*shell-output*" nil)
           (shell-command (format
-                          "echo '%s' | socat%s - %smpvserver"
-                          (nth 2 netease-cloud-music-player-command)
-                          (if (memq system-type '(windows-nt cygwin ms-dos))
-                              ".exe"
-                            "")
-                          (netease-cloud-music--format-process-file))
+                          "echo '%s' | socat - /tmp/mpvserver"
+                          (nth 2 netease-cloud-music-player-command))
                          "*shell-output*" nil)
           (when (get-buffer "*shell-output*")
             (kill-buffer "*shell-output*")))
@@ -901,13 +901,14 @@ FORCE means to forcely kill it."
   (when (netease-cloud-music-process-live-p)
     (if (string= "mpv" (car netease-cloud-music-player-command))
         (progn
+          ;; (shell-command (format
+          ;;                 "echo '%s' | socat%s - %smpvserver"
+          ;;                 (nth 3 netease-cloud-music-player-command)
+          ;;                 (netease-cloud-music--format-process-file))
+          ;;                "*shell-output*" nil)
           (shell-command (format
-                          "echo '%s' | socat%s - %smpvserver"
-                          (nth 3 netease-cloud-music-player-command)
-                          (if (memq system-type '(windows-nt cygwin ms-dos))
-                              ".exe"
-                            "")
-                          (netease-cloud-music--format-process-file))
+                          "echo '%s' | socat - /tmp/mpvserver"
+                          (nth 3 netease-cloud-music-player-command))
                          "*shell-output*" nil)
           (when (get-buffer "*shell-output*")
             (kill-buffer "*shell-output*")))
@@ -1470,7 +1471,7 @@ ID is the song's id."
                      (alist-get 'avatarUrl
                                 (alist-get 'profile info))))
          (setq eaf-netease-cloud-music-user+list
-                   other-info)
+               other-info)
          (eaf-call-async "call_function_with_args" eaf--buffer-id
                          "update_user_info" other-info))
         (message "[Netease-Cloud-Music]: Login successfully!")))))
@@ -1482,7 +1483,7 @@ ID is the song's id."
   (netease-cloud-music-for-eaf
    :eaf-buffer
    (setq eaf-netease-cloud-music-user-playlists+list
-             netease-cloud-music-playlists)
+         netease-cloud-music-playlists)
    (eaf-call-async "call_function_with_args" eaf--buffer-id
                    "refresh_user_playlist" netease-cloud-music-playlists)))
 
@@ -1792,7 +1793,7 @@ If ADD is t, add songs.Otherwise delete songs."
         (netease-cloud-music-for-eaf
          :eaf-buffer
          (setq eaf-netease-cloud-music-playlists-songs+list
-                   netease-cloud-music-playlists-songs)
+               netease-cloud-music-playlists-songs)
          (eaf-call-async "call_function_with_args" eaf--buffer-id
                          "set_playlist" netease-cloud-music-playlists-songs))
         (netease-cloud-music-adjust-song-index)
@@ -2193,7 +2194,7 @@ INDEX is the playlist's index."
            (setq eaf-netease-cloud-music-local-playlist+list
                  netease-cloud-music-playlist)
          (setq eaf-netease-cloud-music-playlists-songs+list
-                   netease-cloud-music-playlists-songs))
+               netease-cloud-music-playlists-songs))
        (eaf-call-async "call_function" eaf--buffer-id "set_playlist")
        (netease-cloud-music-adjust-song-index)))))
 
@@ -2393,11 +2394,11 @@ ELE is a list."
   (and netease-cloud-music-api-process
        (process-live-p netease-cloud-music-api-process)))
 
-(defun netease-cloud-music--format-process-file ()
-  "Format the process file."
-  (if (memq system-type '(windows-nt cygwin ms-dos))
-      "\\\\.\\pipe\\"
-    "/tmp/"))
+;; (defun netease-cloud-music--format-process-file ()
+;;   "Format the process file."
+;;   (if (memq system-type '(windows-nt cygwin ms-dos))
+;;       "\\.\\pipe\\"
+;;     "/tmp/"))
 
 (provide 'netease-cloud-music)
 
