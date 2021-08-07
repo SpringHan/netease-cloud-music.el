@@ -118,10 +118,6 @@
 
      你可以通过改变这个变量的值从而设置网易云音乐的buffer。默认值：~"*Netease-Cloud-Music*"~
 
-   - ~netease-cloud-music-process-file~ (String)
-
-     此变量专为 Windows 用户所定义，当用户播放器是 ~mpv~ 时，需要设置这个变量作为进程文件，便于供 ~socat~ 对其进行控制
-
 ** 注意
    1. 本客户端初次启动歌单空是正常情况，添加歌曲或者登陆之后便有歌曲可听。
    2. 本客户端用户功能等需要用到第三方 API ，如果没有此需求可以不下载。若要下载则使用 ~(netease-cloud-music-donwload-api)~ 进行下载。

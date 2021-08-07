@@ -219,11 +219,6 @@ If it's t, meaning to use the local playlist."
   :type 'boolean
   :group 'netease-cloud-music)
 
-(defcustom netease-cloud-music-process-file nil
-  "The process file for player."
-  :type 'string
-  :group 'netease-cloud-music)
-
 (defcustom netease-cloud-music-write-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-c C-c") 'netease-cloud-music-write-finish)
@@ -734,7 +729,7 @@ SONG-ID is the song's id for current lyric."
                                   (car netease-cloud-music-player-command)
                                   "mpv")
                                  (format
-                                  "--input-ipc-server=%s/mpvserver"
+                                  "--input-ipc-server=%smpvserver"
                                   (netease-cloud-music--format-process-file))
                                ""))))
       (set-process-sentinel netease-cloud-music-process
@@ -887,9 +882,9 @@ FORCE means to forcely kill it."
     (if (string= "mpv" (car netease-cloud-music-player-command))
         (progn
           (shell-command (format
-                          "echo '%s' | socat%s - %s/mpvserver"
+                          "echo '%s' | socat%s - %smpvserver"
                           (nth 2 netease-cloud-music-player-command)
-                          (if (eq system-type 'windows-nt)
+                          (if (memq system-type '(windows-nt cygwin ms-dos))
                               ".exe"
                             "")
                           (netease-cloud-music--format-process-file))
@@ -907,9 +902,9 @@ FORCE means to forcely kill it."
     (if (string= "mpv" (car netease-cloud-music-player-command))
         (progn
           (shell-command (format
-                          "echo '%s' | socat%s - %s/mpvserver"
+                          "echo '%s' | socat%s - %smpvserver"
                           (nth 3 netease-cloud-music-player-command)
-                          (if (eq system-type 'windows-nt)
+                          (if (memq system-type '(windows-nt cygwin ms-dos))
                               ".exe"
                             "")
                           (netease-cloud-music--format-process-file))
@@ -2400,17 +2395,9 @@ ELE is a list."
 
 (defun netease-cloud-music--format-process-file ()
   "Format the process file."
-  (if (eq system-type 'windows-nt)
-      (if netease-cloud-music-process-file
-          (progn
-            (when (string-suffix-p "/"
-                                   netease-cloud-music-process-file)
-              (setq netease-cloud-music-process-file
-                    (substring netease-cloud-music-process-file
-                               0 -1)))
-            netease-cloud-music-process-file)
-        "~")
-    "/tmp"))
+  (if (memq system-type '(windows-nt cygwin ms-dos))
+      "\\\\.\\pipe\\"
+    "/tmp/"))
 
 (provide 'netease-cloud-music)
 
