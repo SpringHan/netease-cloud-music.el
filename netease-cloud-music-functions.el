@@ -26,6 +26,8 @@
 
 ;;; Code:
 
+(require 'request)
+
 (defcustom netease-cloud-music-api-type (cond ((executable-find "npm") 'npm)
                                               ((or (executable-find "docker")
                                                    (executable-find "podman"))
@@ -52,7 +54,7 @@ docker: use docker to start the api."
   "Password.")
 
 (eval-and-compile
-  (defmacro netease-api-defun (name arg &optional docstring &rest body)
+  (defmacro netease-cloud-music-api-defun (name arg &optional docstring &rest body)
     "Like `defun', but it will check the third-party api's status first.
 NAME is the function's name.
 ARG is the arguments for function.
@@ -102,11 +104,12 @@ BODY is the body of the function."
   (defmacro netease-cloud-music--api-func (action)
     "Call the function which is matched with `netease-cloud-music--.*-api-.*'.
 ACTION is its function."
-    (let* ((sfunc (format "netease-cloud-music--%s-api-%s"
-                          (symbol-name action)
-                          (symbol-name netease-cloud-music-api-type)))
-           (func (intern sfunc)))
-      `(,func))))
+    (when netease-cloud-music-api-type
+      (let* ((sfunc (format "netease-cloud-music--%s-api-%s"
+                            (symbol-name action)
+                            (symbol-name netease-cloud-music-api-type)))
+             (func (intern sfunc)))
+        `(,func)))))
 
 (defun netease-cloud-music-error (&rest seq)
   "Print the error message, it's SEQ."
@@ -195,7 +198,7 @@ Like `memq', but use `equal'."
   "Check if `netease-cloud-music-api-type' is depended on downloaded repo."
   (memq netease-cloud-music-api-type '(npm)))
 
-(defun netease-api-request (url)
+(defun netease-cloud-music-api-request (url)
   "Request with the user info.
 URL is the url to request."
   (let (result)

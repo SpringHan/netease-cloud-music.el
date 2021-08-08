@@ -295,12 +295,12 @@ SONGS-INFO is the infos of the songs want to show."
     (erase-buffer)
     (let ((prefix (propertize "<<" 'face 'font-lock-comment-face))
           (end (propertize ">>" 'face 'font-lock-comment-face)))
-      (mapc #'(lambda (s)
-                (insert prefix
-                        (propertize (nth 1 s) 'face 'netease-cloud-music-song-face)
-                        end " - "
-                        (propertize (nth 3 s) 'face 'netease-cloud-music-artist-face)
-                        "\n"))
+      (mapc (lambda (s)
+              (insert prefix
+                      (propertize (nth 1 s) 'face 'netease-cloud-music-song-face)
+                      end " - "
+                      (propertize (nth 3 s) 'face 'netease-cloud-music-artist-face)
+                      "\n"))
             (if (listp (car-safe songs-info))
                 songs-info
               (list songs-info))))
@@ -338,28 +338,26 @@ SONGS-INFO is the infos of the songs want to show."
                 (propertize netease-cloud-music-username
                             'face 'netease-cloud-music-user-name-face) "\n"))
       ;; Show the repeat mode status
-      (insert (concat
-               (propertize "Repeat: "
-                           'face 'netease-cloud-music-repeat-face)
-               (propertize (concat (upcase netease-cloud-music-repeat-mode) "\n")
-                           'face 'netease-cloud-music-repeat-mode-face)))
+      (insert (propertize "Repeat: "
+                          'face 'netease-cloud-music-repeat-face)
+              (propertize (concat (upcase netease-cloud-music-repeat-mode) "\n")
+                          'face 'netease-cloud-music-repeat-mode-face))
       ;; When the type is song, insert the current song info.
-      (when (not (null netease-cloud-music-current-song))
+      (when netease-cloud-music-current-song
         (insert "\n")
-        (insert (concat
-                 (propertize
-                  "Current song: "
-                  'face 'netease-cloud-music-current-song-title-face)
-                 (propertize (format
-                              "%s - %s"
-                              (car netease-cloud-music-current-song)
-                              (nth 1 netease-cloud-music-current-song))
-                             'face 'netease-cloud-music-playing-song-face)
-                 (if (string= netease-cloud-music-process-status "playing")
-                     (propertize " [Playing]\n"
-                                 'face 'netease-cloud-music-play-status-face)
-                   (propertize " [Paused]\n"
-                               'face 'netease-cloud-music-play-status-face)))))
+        (insert (propertize
+                 "Current song: "
+                 'face 'netease-cloud-music-current-song-title-face)
+                (propertize (format
+                             "%s - %s"
+                             (car netease-cloud-music-current-song)
+                             (nth 1 netease-cloud-music-current-song))
+                            'face 'netease-cloud-music-playing-song-face)
+                (if (string= netease-cloud-music-process-status "playing")
+                    (propertize " [Playing]\n"
+                                'face 'netease-cloud-music-play-status-face)
+                  (propertize " [Paused]\n"
+                              'face 'netease-cloud-music-play-status-face))))
 
       ;; User's Playlist
       (when netease-cloud-music-playlists
@@ -371,28 +369,28 @@ SONGS-INFO is the infos of the songs want to show."
                   "\n")
           (when (and netease-cloud-music-playlist-id
                      (= netease-cloud-music-playlist-id (cdr playlist)))
-            (mapc #'(lambda (s)
-                      (insert (format "%s - %s\n"
-                                      (propertize
-                                       (nth 1 s)
-                                       'face 'netease-cloud-music-song-face)
-                                      (propertize
-                                       (if (nth 3 s) (nth 3 s) "nil")
-                                       'face 'netease-cloud-music-artist-face))))
+            (mapc (lambda (s)
+                    (insert (format "%s - %s\n"
+                                    (propertize
+                                     (nth 1 s)
+                                     'face 'netease-cloud-music-song-face)
+                                    (propertize
+                                     (if (nth 3 s) (nth 3 s) "nil")
+                                     'face 'netease-cloud-music-artist-face))))
                   netease-cloud-music-playlists-songs))))
 
       ;; Local Playlist
       (when netease-cloud-music-playlist
         (insert (propertize "\nLocal Playlist:\n"
                             'face 'netease-cloud-music-playlists-face))
-        (mapc #'(lambda (s)
-                  (insert (format "%s - %s\n"
-                                  (propertize
-                                   (nth 1 s)
-                                   'face 'netease-cloud-music-song-face)
-                                  (propertize
-                                   (nth 3 s)
-                                   'face 'netease-cloud-music-artist-face))))
+        (mapc (lambda (s)
+                (insert (format "%s - %s\n"
+                                (propertize
+                                 (nth 1 s)
+                                 'face 'netease-cloud-music-song-face)
+                                (propertize
+                                 (nth 3 s)
+                                 'face 'netease-cloud-music-artist-face))))
               netease-cloud-music-playlist))
       (setq buffer-read-only t)
       (goto-char (point-min))
