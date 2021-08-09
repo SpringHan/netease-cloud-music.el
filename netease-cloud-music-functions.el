@@ -42,6 +42,8 @@ docker: use docker to start the api."
   :type '(choice (const :tag "Native" native)
                  (const :tag "Docker" docker)))
 
+(defvar eaf--buffer-id)
+
 (defcustom netease-cloud-music-api-port "3000"
   "The port for the API process."
   :type 'string
@@ -290,13 +292,30 @@ If the item is exists, return the cons."
        (concat sec "." (substring msec
                                   0 2))))))
 
+(defun netease-cloud-music--cons-to-list (cons)
+  "Convert cons list to list."
+  (let (list)
+    (dolist (item cons)
+      (setq list (append list
+                         (list (list (car item)
+                                     (cdr item))))))
+    list))
+
 (netease-cloud-music-eaf-defun eaf-call-async (&rest args)
   args)
 
-(netease-cloud-music-eaf-defun eaf-call-sync (&rest args)
-  args)
-
 (netease-cloud-music-eaf-defun eaf--netease-cloud-music--update-song-style ())
+
+(netease-cloud-music-eaf-defun eaf--netease-cloud-music-change-play-status ())
+
+(netease-cloud-music-eaf-defun netease-cloud-music-call-js (func &optional args)
+  "Call js FUNC with ARGS."
+  (interactive)
+  (unless args
+    (setq args ""))
+  ;; Ensure this is only called from EAF buffer
+  (when (derived-mode-p 'eaf-mode)
+    (eaf-call-async "execute_js_function" eaf--buffer-id (string-trim-left func "js_") args)))
 
 (provide 'netease-cloud-music-functions)
 
