@@ -308,7 +308,7 @@ If the item is exists, return the cons."
 
 (netease-cloud-music-eaf-defun eaf--netease-cloud-music-change-play-status ())
 
-(netease-cloud-music-eaf-defun netease-cloud-music-call-js (func &optional args)
+(defun netease-cloud-music-call-js (func &optional args)
   "Call js FUNC with ARGS."
   (interactive)
   (unless args
