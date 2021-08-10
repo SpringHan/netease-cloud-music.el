@@ -1244,27 +1244,45 @@ If HINT is not non-nil, show the hint message."
                                            (alist-get 'name artist)))))))
       result)))
 
+(defun netease-cloud-music--list-to-batch-list (input size)
+  "Split INPUT list into a batches (i.e. sublists) of maximum SIZE."
+  (when (< size 1)
+    (error "SIZE of the batches must be at least 1"))
+  (unless (seqp input)
+    (error "INPUT must be a sequence or list"))
+  (cl-loop with tail = input
+           while tail
+           collect (cl-loop for ptr on tail
+                            for i upfrom 0
+                            while (< i size)
+                            collect (car ptr)
+                            finally (setf tail ptr))))
+
 (defun netease-cloud-music-get-song-detail (ids)
   "Get the songs' info by their IDS."
   (when ids
-    (let ((song-info (netease-cloud-music-api-request
-                      (format "song/detail?ids=%s"
-                              (netease-cloud-music--list-to-splited-string
-                               ids))))
-          result songs song artist)
-      (if (or (null song-info)
-              (/= 200 (alist-get 'code song-info)))
-          (netease-cloud-music-error "To get songs info failed!")
-        (setq songs (alist-get 'songs song-info))
-        (dotimes (n (length songs))
-          (setq song (aref songs n)
-                artist (aref (alist-get 'ar song) 0))
-          (setq result (append result
-                               (list (list (alist-get 'id song)
-                                           (alist-get 'name song)
-                                           (alist-get 'id artist)
-                                           (alist-get 'name artist))))))
-        result))))
+    (let ((batch-ids (netease-cloud-music--list-to-batch-list ids 500))
+          result)
+      (dotimes (n (length batch-ids))
+        (setq ids (nth n batch-ids))
+        (let ((song-info (netease-cloud-music-api-request
+                          (format "song/detail?ids=%s"
+                                  (netease-cloud-music--list-to-splited-string
+                                   ids))))
+              songs song artist)
+          (if (or (null song-info)
+                  (/= 200 (alist-get 'code song-info)))
+              (netease-cloud-music-error "To get songs info failed!")
+            (setq songs (alist-get 'songs song-info))
+            (dotimes (n (length songs))
+              (setq song (aref songs n)
+                    artist (aref (alist-get 'ar song) 0))
+              (setq result (append result
+                                   (list (list (alist-get 'id song)
+                                               (alist-get 'name song)
+                                               (alist-get 'id artist)
+                                               (alist-get 'name artist)))))))))
+      result)))
 
 (defun netease-cloud-music-get-user-playlist (uid)
   "Get the playlists of the user whose user id is UID."
