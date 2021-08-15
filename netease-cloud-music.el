@@ -837,7 +837,10 @@ FORCE means to forcely kill it."
             force)
     (netease-cloud-music-kill-process)
     (setq netease-cloud-music-process-status "")
-    (netease-cloud-music-tui-init)))
+    (netease-cloud-music-tui-init)
+    (netease-cloud-music-for-eaf
+     :eaf-buffer
+     (eaf--netease-cloud-music-change-play-status))))
 
 (defun netease-cloud-music-seek-forward ()
   "Seek forward the current song."
