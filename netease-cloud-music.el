@@ -1247,9 +1247,9 @@ If HINT is not non-nil, show the hint message."
 (defun netease-cloud-music--list-to-batch-list (input size)
   "Split INPUT list into a batches (i.e. sublists) of maximum SIZE."
   (when (< size 1)
-    (error "SIZE of the batches must be at least 1"))
+    (netease-cloud-music-error "SIZE of the batches must be at least 1"))
   (unless (seqp input)
-    (error "INPUT must be a sequence or list"))
+    (netease-cloud-music-error "INPUT must be a sequence or list"))
   (cl-loop with tail = input
            while tail
            collect (cl-loop for ptr on tail
