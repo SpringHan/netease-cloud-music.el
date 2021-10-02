@@ -30,6 +30,17 @@
 
 (require 'netease-cloud-music)
 
+(defcustom netease-cloud-music-jump-function
+  'netease-cloud-music-jump-read-line
+  "FUnction for jumpping."
+  :type 'symbol
+  :group 'netease-cloud-music)
+
+(defcustom netease-cloud-music-line-number-relative nil
+  "If the line number is relative."
+  :type 'boolean
+  :group 'netease-cloud-music)
+
 (defface netease-cloud-music-head-title-face
   '((t :height 1.1 :foreground "Red3"))
   "The head title face."
@@ -77,7 +88,7 @@
 
 (defvar netease-cloud-music-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map "g" 'netease-cloud-music-interface-init)
+    (define-key map "g" 'netease-cloud-music-goto)
     (define-key map "Q" 'netease-cloud-music-close)
     (define-key map "q" 'netease-cloud-music-back)
     (define-key map (kbd "SPC") 'netease-cloud-music-pause-or-continue)
@@ -474,15 +485,7 @@ MOVE means do not care about the cursor's position."
            (let ((playlist (buffer-substring-no-properties
                             (line-beginning-position)
                             (line-end-position))))
-             (setq netease-cloud-music-use-local-playlist nil
-                   netease-cloud-music-playlist-id
-                   (alist-get playlist netease-cloud-music-playlists
-                              nil nil 'string-equal)
-                   netease-cloud-music-playlists-songs
-                   (netease-cloud-music-get-playlist-songs
-                    netease-cloud-music-playlist-id))
-             (when netease-cloud-music-process
-               (netease-cloud-music-kill-current-song))
+             (netease-cloud-music--switch-playlist playlist)
              (throw 'stop t)))
           
           ((and (string-match-p "^\\(.*\\) - \\(.*\\)" (thing-at-point 'line))
@@ -521,6 +524,114 @@ MOVE means do not care about the cursor's position."
                          netease-cloud-music-playlists-songs
                          (netease-cloud-music-get-playlist-songs
                           netease-cloud-music-playlist-id))))))))))
+
+(defun netease-cloud-music--switch-playlist (name)
+  "Switch user playlist by its NAME."
+  (setq netease-cloud-music-use-local-playlist nil
+        netease-cloud-music-playlist-id
+        (alist-get name netease-cloud-music-playlists
+                   nil nil 'string-equal)
+        netease-cloud-music-playlists-songs
+        (netease-cloud-music-get-playlist-songs
+         netease-cloud-music-playlist-id))
+  (when netease-cloud-music-process
+    (netease-cloud-music-kill-current-song)))
+
+;;; Jump
+
+(defun netease-cloud-music--keep-cursor-visible ()
+  "Keep cursor visible."
+  (set-window-point (get-buffer-window netease-cloud-music-buffer-name) (point)))
+
+(defun netease-cloud-music-goto (position)
+  "Goto the POSITION."
+  (interactive (list (let ((face '((:inherit font-lock-warning-face :underline t))))
+                       (read-char
+                        (concat "Enter the position("
+                                (propertize "g" 'face face)
+                                " refresh, "
+                                (propertize "u" 'face face)
+                                "ser playlist, "
+                                (propertize "l" 'face face)
+                                "ocal playlist, "
+                                (propertize "c" 'face face)
+                                "urrent song, "
+                                (propertize "s" 'face face)
+                                "witch playlist, "
+                                (propertize "p" 'face face)
+                                "lay song"
+                                "):")))))
+  (with-current-buffer netease-cloud-music-buffer-name
+    (pcase position
+      (?g (netease-cloud-music-interface-init))
+      (?u
+       (goto-char (point-min))
+       (let ((case-fold-search t))
+         (search-forward "User's Playlists:\n"))
+       (netease-cloud-music--keep-cursor-visible))
+      (?l
+       (goto-char (point-min))
+       (let ((case-fold-search t))
+         (search-forward "Local Playlist:\n"))
+       (netease-cloud-music--keep-cursor-visible))
+      (?c
+       (let ((playlist-index (unless netease-cloud-music-use-local-playlist
+                               (netease-cloud-music--cdr-index
+                                netease-cloud-music-playlist-id
+                                netease-cloud-music-playlists)))
+             (case-fold-search t))
+         (goto-char (point-min))
+         (if playlist-index
+             (progn
+               (search-forward "User's playlists:\n")
+               (forward-line (1+ playlist-index)))
+           (search-forward "Local Playlist:\n"))
+         (forward-line netease-cloud-music-playlist-song-index)
+         (netease-cloud-music--keep-cursor-visible)))
+      (?s
+       (let ((playlist (netease-cloud-music--jump)))
+         (when playlist
+           (netease-cloud-music--switch-playlist playlist))
+         (netease-cloud-music-interface-init)
+         (netease-cloud-music--keep-cursor-visible)))
+      (?p
+       (let ((song (netease-cloud-music--jump t)))
+         (when (string-match-p "^\\(.*\\) - \\(.*\\)" (car song))
+           (goto-char (point-min))
+           (forward-line (1- (cdr song)))
+           (netease-cloud-music-play-song-at-point)))))))
+
+(defun netease-cloud-music--cdr-index (ele list)
+  "Get the index of item in LIST which cdr is equal to ELE."
+  (catch 'stop
+    (dotimes (i (length list))
+      (when (eq (cdr (nth i list)) ele)
+        (throw 'stop i)))))
+
+(defun netease-cloud-music-jump-read-line ()
+  "The function for jump by reading line number."
+  (read-number "Enter the line number: "))
+
+(defun netease-cloud-music--jump (&optional with-line)
+  "Get the text from line number.
+WHen WITH-LINE is non-nil, return the (content . line-number)."
+  (if (not (fboundp netease-cloud-music-jump-function))
+      (netease-cloud-music-error "The jump function cannot be found!")
+    (let ((line (funcall netease-cloud-music-jump-function))
+          result)
+      (save-excursion
+        (if netease-cloud-music-line-number-relative
+            (forward-line line)
+          (goto-char (point-min))
+          (forward-line (1- line)))
+        (setq result (buffer-substring-no-properties
+                      (line-beginning-position)
+                      (line-end-position))))
+      (if with-line
+          (cons result (if netease-cloud-music-line-number-relative
+                           (+ (line-number-at-pos) line)
+                         line))
+        result))))
 
 (provide 'netease-cloud-music-ui)
 
