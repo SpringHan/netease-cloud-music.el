@@ -739,6 +739,11 @@ SONG-ID is the song's id for current lyric."
       (netease-cloud-music-change-playlist-mode))
     (when current-song
       (setq netease-cloud-music-playlist-song-index current-song))
+    (when (> netease-cloud-music-playlist-song-index
+             (length (if netease-cloud-music-use-local-playlist
+                         netease-cloud-music-playlist
+                       netease-cloud-music-playlists-songs)))
+      (setq netease-cloud-music-playlist-song-index 0))
     (setq song
           (nth netease-cloud-music-playlist-song-index
                (if netease-cloud-music-use-local-playlist
