@@ -610,7 +610,7 @@ MOVE means do not care about the cursor's position."
 
 (defun netease-cloud-music-jump-read-line ()
   "The function for jump by reading line number."
-  (read-number "Enter the line number: "))
+  (read-number "Enter the line number(negetive number means up): "))
 
 (defun netease-cloud-music--jump (&optional with-line)
   "Get the text from line number.
