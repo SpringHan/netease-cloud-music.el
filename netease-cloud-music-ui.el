@@ -251,7 +251,7 @@
   "Initialize the Netease Music buffer in `netease-cloud-music-mode'."
   (interactive)
   (setq netease-cloud-music-last-buffer (current-buffer)) ;Record the buffer which called this function
-  
+
   (if (get-buffer netease-cloud-music-buffer-name)
       (switch-to-buffer netease-cloud-music-buffer-name)
     (unless (buffer-live-p (get-buffer netease-cloud-music-buffer-name))
@@ -262,32 +262,37 @@
 
     (unless (file-exists-p netease-cloud-music-cache-directory)
       (make-directory netease-cloud-music-cache-directory))
-    (when (and (not (eq netease-cloud-music-api-type 'remote))
-	       (or (not (netease-cloud-music--api-need-downloaded))
-                   (netease-cloud-music--api-downloaded))
-               (not (netease-cloud-music-api-process-live-p)))
-      (netease-cloud-music-start-api)   ;Start third-party API
 
-      (when (file-exists-p netease-cloud-music-user-loginfo-file)
-        (let ((loginfo (netease-cloud-music-get-loginfo)))
-          (when loginfo
-            (setq netease-cloud-music-phone (car loginfo)
-                  netease-cloud-music-user-password (cdr loginfo)
-                  netease-cloud-music-login-timer
-                  (run-with-timer
-                   1 2
-                   (lambda ()
-                     (if (and netease-cloud-music-user-id
-                              netease-cloud-music-username)
-                         (progn
-                           (cancel-timer netease-cloud-music-login-timer)
-                           (setq netease-cloud-music-login-timer nil))
-                       (netease-cloud-music--get-user-info)
-                       (ignore-errors
-                         (setq netease-cloud-music-playlists
-                               (netease-cloud-music-get-user-playlist
-                                netease-cloud-music-user-id)))
-                       (netease-cloud-music-interface-init)))))))))))
+    (if (eq netease-cloud-music-api-type 'remote)
+	(netease-cloud-music-prepare-interface)
+      (when (and (or (not (netease-cloud-music--api-need-downloaded))
+                     (netease-cloud-music--api-downloaded))
+		 (not (netease-cloud-music-api-process-live-p)))
+	(netease-cloud-music-start-api)   ;Start third-party API
+	(netease-cloud-music-prepare-interface)))))
+
+(defun netease-cloud-music-prepare-interface ()
+  "Prepare the Netease Cloud Music UI with loginfo."
+  (when (file-exists-p netease-cloud-music-user-loginfo-file)
+    (let ((loginfo (netease-cloud-music-get-loginfo)))
+      (when loginfo
+        (setq netease-cloud-music-phone (car loginfo)
+              netease-cloud-music-user-password (cdr loginfo)
+              netease-cloud-music-login-timer
+              (run-with-timer
+               1 2
+               (lambda ()
+                 (if (and netease-cloud-music-user-id
+                          netease-cloud-music-username)
+                     (progn
+                       (cancel-timer netease-cloud-music-login-timer)
+                       (setq netease-cloud-music-login-timer nil))
+                   (netease-cloud-music--get-user-info)
+                   (ignore-errors
+                     (setq netease-cloud-music-playlists
+                           (netease-cloud-music-get-user-playlist
+                            netease-cloud-music-user-id)))
+                   (netease-cloud-music-interface-init)))))))))
 
 (defun netease-cloud-music-close ()
   "Close Netease Music and kill the process."
