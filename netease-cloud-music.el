@@ -459,7 +459,8 @@ Otherwise return nil."
     (setq netease-cloud-music-playlist-refresh-timer nil))
   (netease-cloud-music-cancel-timer t)
   (netease-cloud-music-save-playlist)
-  (netease-cloud-music-stop-api t)
+  (when (not (eq netease-cloud-music-api-type 'remote))
+    (netease-cloud-music-stop-api t))
   (when (get-buffer " *Request*")
     (kill-buffer " *Request*"))
   (netease-cloud-music-for-eaf
