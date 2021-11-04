@@ -1385,8 +1385,10 @@ NO-ERROR means to close error signal."
 (netease-cloud-music-api-defun netease-cloud-music-restart-api ()
   "Restart the third-party API."
   (interactive)
-  (netease-cloud-music-stop-api)
-  (netease-cloud-music-start-api))
+  (if (eq netease-cloud-music-api-type 'remote)
+      (message "[Netease-Cloud-Music]: We are using remote API.")
+    (netease-cloud-music-stop-api)
+    (netease-cloud-music-start-api)))
 
 (netease-cloud-music-api-defun netease-cloud-music-login (&optional phone password)
   "Login with PHONE number and PASSWORD."
@@ -1400,8 +1402,12 @@ NO-ERROR means to close error signal."
                            (substring (match-string 1 phone) 1)
                          (setq phone (match-string 2 phone))))
           login-result other-info)
-      (request (format "http://localhost:%s/login/cellphone?phone=%s&md5_password=%s&countrycode=%s"
-                       netease-cloud-music-api-port phone password countrycode)
+      (request (format "%s:%s/login/cellphone?phone=%s&md5_password=%s&countrycode=%s"
+		       netease-cloud-music-api-address
+                       netease-cloud-music-api-port
+		       phone
+		       password
+		       countrycode)
         :parser 'json-read
         :success (netease-cloud-music-expand-form
                   (setq login-result data))
@@ -2366,9 +2372,12 @@ ELE is a list."
        (> (length (directory-files netease-cloud-music-api-dir)) 2)))
 
 (defun netease-cloud-music-api-process-live-p ()
-  "Check if the third-party API process is live."
-  (and netease-cloud-music-api-process
-       (process-live-p netease-cloud-music-api-process)))
+  "Check if the third-party API process is live.
+
+When using remote API, we just assume it is live."
+  (if (eq netease-cloud-music-api-type 'remote) t
+    (and netease-cloud-music-api-process
+	 (process-live-p netease-cloud-music-api-process))))
 
 (provide 'netease-cloud-music)
 

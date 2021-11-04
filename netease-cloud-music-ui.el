@@ -262,7 +262,8 @@
 
     (unless (file-exists-p netease-cloud-music-cache-directory)
       (make-directory netease-cloud-music-cache-directory))
-    (when (and (or (not (netease-cloud-music--api-need-downloaded))
+    (when (and (not (eq netease-cloud-music-api-type 'remote))
+	       (or (not (netease-cloud-music--api-need-downloaded))
                    (netease-cloud-music--api-downloaded))
                (not (netease-cloud-music-api-process-live-p)))
       (netease-cloud-music-start-api)   ;Start third-party API
