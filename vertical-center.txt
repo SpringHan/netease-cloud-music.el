@@ -1,0 +1,19 @@
+垂直居中的方案:
+
+(defun my-display-centered-paragraph (text)
+  (let* ((buffer (get-buffer-create "*demo*"))
+         (window (display-buffer buffer)))
+    (with-current-buffer buffer
+      (with-selected-window window
+        (let ((inhibit-read-only t)
+              (window-height (window-body-height window t))
+              content-height)
+          (delete-region (point-min) (point-max))
+          (insert text)
+          (set-window-start window (point-min))
+          (unless (looking-back "\n$")
+            (insert "\n"))
+          (setq content-height (cdr (posn-x-y (posn-at-point))))
+          (goto-char (point-min))
+          (insert (propertize "\n" 'line-height
+                              (/ (- window-height content-height) 2))))))))

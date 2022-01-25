@@ -234,6 +234,15 @@ URL is the url to request."
           (setq result (json-read-from-string (buffer-string))))))
     result))
 
+(defun netease-cloud-music--request (url)
+  "Like `netease-cloud-music-api-request', but do not login."
+  (let (result)
+    (request url
+      :parser 'json-read
+      :success (netease-cloud-music-expand-form (setq result data))
+      :sync t)
+    result))
+
 (defun netease-cloud-music-alist-cdr (key list)
   "Find the first item in LIST which `cdr' is equal to KEY.
 Use `equal' to compare.
