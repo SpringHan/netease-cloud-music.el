@@ -2,7 +2,7 @@
 
 ;; Author: SpringHan
 ;; Maintainer: SpringHan
-;; Version: 2.0
+;; Version: 2.1
 
 ;; This file is not part of GNU Emacs
 
@@ -30,7 +30,7 @@
 ;;; If you want to enable it, add the code below in your configuration:
 ;;; (require 'netease-cloud-music-comment)
 
-(require 'url)                          ;Used to get the data of user avatar
+(require 'svg)
 (require 'netease-cloud-music)
 
 (defcustom netease-cloud-music-comments nil
@@ -60,7 +60,9 @@
   :group 'netease-cloud-music
   :abbrev-table nil
   :syntax-table nil
-  (setq buffer-read-only t))
+  (setq buffer-read-only t)
+  (when netease-cloud-music-show-lyric
+    (netease-cloud-music-add-header-lyrics)))
 
 (defun netease-cloud-music-goto-top-or-refresh ()
   "Goto the top of comment buffer or refresh it."
@@ -73,22 +75,52 @@
 
 ;;; UI building Functions
 (defun netease-cloud-music--content-build (info)
-  "Build comment content by its INFO."
+  "Build comment content by its INFO.
+Tips: the last but one line is not null.
+Content's id is here."
   (let ((cid (car info))
         (content (nth 1 info))
         (user-name (nth 2 info))
-        (avatar (nth 3 info)))
-    ;; Debug
-    (netease-cloud-music--insert-avatar avatar (current-buffer))
-    ;; TODO: To find the way to keep user-name in the center vertically
-    ;; Study the code in 'vertical-center.txt'
-    (insert (propertize user-name 'face '((t :weight bold :height 1.5)))
-            "\n\t\t" content "\n\n")
-    ))
+        (avatar (nth 3 info))
+        start-point)
+    (with-current-buffer (current-buffer)
+      (goto-char (setq start-point (point-max)))
+      (netease-cloud-music--insert-avatar avatar)
+      (insert " " (propertize user-name 'face '((t :weight bold :height 1.2)))
+              "\n")
+      (overlay-put (make-overlay start-point (1+ (point))) 'face
+                   '((t :inherit header-line :extend t)))
+      (insert "\t\t" content "\n" (number-to-string cid))
+      ;; NOTE: Hide the content id, and you can get it by `overlays-at'
+      (overlay-put (make-overlay (line-beginning-position) (line-end-position))
+                   'display "\n")
+      (insert "\n"))))
+
+(defun netease-cloud-music--insert-avatar (url)
+  "The function to insert user's avatar.
+URL is avatar's url."
+  (let ((buf (url-retrieve-synchronously url)))
+    (unwind-protect
+        (let ((data (with-current-buffer buf
+                      (goto-char (point-min))
+                      (search-forward "\n\n")
+                      (buffer-substring (point) (point-max)))))
+          (let* ((width (round (* (frame-width) 0.35)))
+                 (svg (svg-create width width))
+                 (cpath (svg-clip-path svg :id "clip")))
+            (svg-rectangle cpath 0 0 width width
+                           :rx (* 0.5 width))
+            (svg-embed svg data "image/jpeg" t
+                       :width (format "%dpx" width)
+                       :height (format "%dpx" width)
+                       :clip-path "url(#clip)")
+            (svg-insert-image svg)))
+      (kill-buffer buf))))
 
 ;;; Comment Network API
 (defun netease-cloud-music-get-comment (id)
-  "Get the song's comment by its ID."
+  "Get the song's comment by its ID and return it.
+Warning: This function doesn't have side-effect."
   (let* ((get-page (1+ (/ (length (alist-get id netease-cloud-music-comments)) 10)))
          (data (netease-cloud-music--request
                 (format
@@ -108,19 +140,50 @@
                                     (alist-get 'avatarUrl (car comment)))))))
       result)))
 
-(defun netease-cloud-music--insert-avatar (url buffer)
-  "The function to insert user's avatar.
-URL is avatar's url.
-BUFFER is the comment buffer."
-  (let ((buf (url-retrieve-synchronously url)))
-    (unwind-protect
-        (let ((data (with-current-buffer buf
-                      (goto-char (point-min))
-                      (search-forward "\n\n")
-                      (buffer-substring (point) (point-max)))))
-          (with-current-buffer buffer
-            (insert-image (create-image data nil t :scale 0.05))))
-      (kill-buffer buf))))
+;; TODO: To test this function, (haven't been tested).
+(defun netease-cloud-music-comment-or-reply (sid content &optional cid)
+  "The function to comment or reply CONTENT to a comment.
+SID is the song's id.
+When CID is non-nil, means to reply comment with cid(its id)."
+  (let ((send (netease-cloud-music-api-request
+               (format "comment?t=%s&type=0&id=%d&content=%s"
+                       (if cid
+                           (format "2&%d" cid)
+                         "1")
+                       sid (url-encode-url content)))))
+    (if (/= (alist-get 'code send) 200)
+        (netease-cloud-music-error "Failed to comment!")
+      send)))
+;; TODO: Add a function to delete the comment
+
+;;; Comment UI API
+(defun netease-cloud-music--get-current-comment-id ()
+  "The function to get comment id under cursor."
+  (save-excursion
+    (with-current-buffer (current-buffer)
+      (let (ov move-arg)
+        (setq move-arg
+              (cond ((and (= (line-beginning-position) (line-end-position))
+                          (null (overlays-at (point))))
+                     -1)
+                    ((/= (line-beginning-position) (line-end-position))
+                     1)))
+        (when move-arg
+          (forward-line move-arg)
+          (while (null (setq ov (overlays-at (point))))
+            (forward-line move-arg)))
+        (setq ov (if ov
+                     (car ov)
+                   (car (overlays-at (point)))))
+        (string-to-number
+         (buffer-substring (overlay-start ov) (overlay-end ov)))))))
+
+;;; Debug
+(defun spring/ncm-build-comment ()
+  "Debug function."
+  (netease-cloud-music--content-build
+   (car (netease-cloud-music-get-comment
+         (nth 2 netease-cloud-music-current-song)))))
 
 (provide 'netease-cloud-music-comment)
 

@@ -2,7 +2,7 @@
 
 ;; Author: SpringHan
 ;; Maintainer: SpringHan
-;; Version: 2.0
+;; Version: 2.1
 
 ;; This file is not part of GNU Emacs
 

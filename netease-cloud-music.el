@@ -2,7 +2,7 @@
 
 ;; Author: SpringHan
 ;; Maintainer: SpringHan
-;; Version: 2.0
+;; Version: 2.1
 ;; Package-Requires: ((emacs "27.1") (request "0.3.3"))
 ;; Homepage: https://github.com/SpringHan/netease-cloud-music.git
 ;; Keywords: multimedia
@@ -39,6 +39,7 @@
 ;;; Code:
 
 (require 'cl-lib)
+(require 'url)
 (require 'request)
 (require 'json)
 
