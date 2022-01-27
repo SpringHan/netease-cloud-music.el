@@ -257,24 +257,17 @@ If the item is exists, return the cons."
                   (throw 'stop ele)))))
       item)))
 
-(defun netease-cloud-music-encode-url (text)
-  "Change the special chars in the TEXT to the escape character."
-  (let ((chars (string-to-list text))
-        tmp)
-    (setq text nil)
-    (dolist (char chars)
-      (setq tmp (pcase char
-                  (32 "%20")
-                  (43 "%2B")
-                  (47 "%2F")
-                  (63 "%3F")
-                  (37 "%25")
-                  (35 "%23")
-                  (38 "%26")
-                  (61 "%3D")
-                  (_ (char-to-string char))))
-      (setq text (concat text tmp)))
-    text))
+(defun netease-cloud-music--car-eq (key list &optional index)
+  "Find the item whose `car' is equal to KEY in LIST.
+If index is non-nil, return the item's index.
+Otherwise return item itself."
+  (when (consp list)
+    (catch 'result
+      (dotimes (i (length list))
+        (when (eq key (car (nth i list)))
+          (throw 'result (if index
+                             i
+                           (nth i list))))))))
 
 (defun netease-cloud-music--get-lyric-time (lyric)
   "Get the LYRIC's time."
