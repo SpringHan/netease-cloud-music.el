@@ -31,6 +31,7 @@
 ;;; (require 'netease-cloud-music-comment)
 
 (require 'svg)
+(require 'async)
 (require 'netease-cloud-music)
 
 (when (featurep 'netease-cloud-music-ui)
@@ -55,7 +56,7 @@
   (let ((map (make-sparse-keymap)))
     (define-key map "q" #'netease-cloud-music-comment-exit)
     (define-key map "x" #'bury-buffer)
-    (define-key map "n" #'next-line)
+    (define-key map "n" #'netease-cloud-music-next-line-or-more)
     (define-key map "p" #'previous-line)
     (define-key map "c" #'netease-cloud-music-copy-content)
     (define-key map "x" #'bury-buffer)
@@ -125,17 +126,17 @@ Otherwise get the playing song's id."
         (comments (cons song-id
                         (netease-cloud-music-get-comment
                          song-id))))
-    (with-current-buffer (get-buffer-create buf-name)
-      (setq netease-cloud-music-comments
-            (append netease-cloud-music-comments (list comments)))
-      (mapc #'netease-cloud-music--content-build (cdr comments))
-      ;; TODO: Add '[Press for more]' button.
-      ;; TODO: Improve the speed for image insert (Like asynchronous)
-      (goto-char (point-min))
-      (netease-cloud-music-comment-mode)
-      (setq-local netease-cloud-music-buffer-song-id song-id))
-    (add-to-list 'netease-cloud-music-comment-buffers (get-buffer buf-name))
-    (switch-to-buffer buf-name)))
+    (if (get-buffer buf-name)
+        (switch-to-buffer buf-name)
+      (with-current-buffer (get-buffer-create buf-name)
+        (setq netease-cloud-music-comments
+              (append netease-cloud-music-comments (list comments)))
+        (netease-cloud-music-comment-mode)
+        (setq-local netease-cloud-music-buffer-song-id song-id))
+      (netease-cloud-music--async-init-comment-buffer
+       (cdr comments) buf-name)
+      (add-to-list 'netease-cloud-music-comment-buffers (get-buffer buf-name))
+      (message "[Netease-Cloud-Music]: Comment buffer loading..."))))
 
 ;;;###autoload
 (define-derived-mode netease-cloud-music-edit-mode text-mode "Netease-Cloud-Music-Edit"
@@ -178,9 +179,12 @@ Otherwise get the playing song's id."
     (netease-cloud-music--comment-check)
     (let* ((song-id netease-cloud-music-buffer-song-id)
            (height (* 0.45 (window-body-height nil t)))
-           (cid (pcase (read-char "[r]Comment, [R]eply")
-                  (?r nil)
-                  (?R (netease-cloud-music--get-current-comment-id))))
+           (cid
+            ;; Network API has some bug, failed to achieve this feature.
+            ;; (pcase (read-char "[r]Comment, [R]eply")
+            ;;       (?r nil)
+            ;;       (?R (netease-cloud-music--get-current-comment-id)))
+            )
            (song-name (progn
                         (string-match
                          "\\*Netease-Cloud-Music-Comment:\\(.*\\)\\*"
@@ -231,6 +235,27 @@ Otherwise get the playing song's id."
         (forward-line))
       (kill-ring-save start (1- (point))))))
 
+(defun netease-cloud-music-next-line-or-more ()
+  "Next line or get more comments."
+  (interactive)
+  (if (not (eobp))
+      (forward-line)
+    (when (yes-or-no-p "Get more comments?")
+      (let ((new-comments (netease-cloud-music-get-comment
+                           netease-cloud-music-buffer-song-id))
+            content-info)
+        (if (null new-comments)
+            (netease-cloud-music-error "Failed to get more comments!")
+          (setq content-info (netease-cloud-music--car-eq
+                              netease-cloud-music-buffer-song-id
+                              netease-cloud-music-comments t t))
+          (setf (nth (car content-info) netease-cloud-music-comments)
+                (append (cdr content-info)
+                        new-comments))
+          (netease-cloud-music--async-init-comment-buffer
+           new-comments (buffer-name) t)
+          (message "[Netease-Cloud-Music]: Getting more comments..."))))))
+
 (defun netease-cloud-music--throw-mass-suffix (content)
   "Throw the mass suffix like '^M' of CONTENT."
   (let ((string-list (split-string content "\n" t))
@@ -265,48 +290,76 @@ Content's id is here."
     (with-current-buffer (current-buffer)
       (goto-char (setq start-point (point-max)))
       (netease-cloud-music--insert-avatar avatar)
-      (insert " " (propertize user-name 'face '((t :weight bold :height 1.2)))
+      (insert " " (propertize user-name 'face '((:weight bold :height 1.2)))
               "\n")
       (overlay-put (make-overlay start-point (1+ (point))) 'face
-                   '((t :inherit header-line :extend t)))
+                   '((:inherit header-line :extend t)))
       (insert "\t\t" content "\n" (number-to-string cid))
       ;; NOTE: Hide the content id, and you can get it by `overlays-at'
       (overlay-put (make-overlay (line-beginning-position) (line-end-position))
                    'display "\n")
       (insert "\n"))))
 
-(defun netease-cloud-music--insert-avatar (url)
+(defun netease-cloud-music--insert-avatar (data)
   "The function to insert user's avatar.
-URL is avatar's url."
-  (let ((buf (url-retrieve-synchronously url)))
-    (unwind-protect
-        (let ((data (with-current-buffer buf
-                      (goto-char (point-min))
-                      (search-forward "\n\n")
-                      (buffer-substring (point) (point-max)))))
-          (let* ((width (round (* (frame-width) 0.35)))
-                 (svg (svg-create width width))
-                 (cpath (svg-clip-path svg :id "clip")))
-            (svg-rectangle cpath 0 0 width width
-                           :rx (* 0.5 width))
-            (svg-embed svg data "image/jpeg" t
-                       :width (format "%dpx" width)
-                       :height (format "%dpx" width)
-                       :clip-path "url(#clip)")
-            (svg-insert-image svg)))
-      (kill-buffer buf))))
+DATA is avatar's data."
+  (let* ((width (round (* (frame-width) 0.35)))
+         (svg (svg-create width width))
+         (cpath (svg-clip-path svg :id "clip")))
+    (svg-rectangle cpath 0 0 width width
+                   :rx (* 0.5 width))
+    (svg-embed svg data "image/jpeg" t
+               :width (format "%dpx" width)
+               :height (format "%dpx" width)
+               :clip-path "url(#clip)")
+    (svg-insert-image svg)))
+
+(defun netease-cloud-music--async-init-comment-buffer (comments buffer &optional not-move)
+  "Initialize comment buffer asynchronous.
+COMMENTS is the list filled with comment-info.
+BUFFER is the comment buffer.
+When NOT-MOVE is non-nil, keep cursor the current position after init."
+  (async-start (lambda ()
+                 (unless (featurep 'url)
+                   (require 'url))
+                 (mapcar 
+                  (lambda (comment-info)
+                    (setq comment-info (copy-sequence comment-info)) ;To avoid side-effect
+                    (let ((buf (url-retrieve-synchronously (nth 3 comment-info)))
+                          data)
+                      (unwind-protect (with-current-buffer buf
+                                        (goto-char (point-min))
+                                        (search-forward "\n\n")
+                                        (setq data (buffer-substring (point) (point-max))))
+                        (kill-buffer buf))
+                      (when data
+                        (setf (nth 3 comment-info) data))
+                      comment-info))
+                  comments))
+               (lambda (data)
+                 (with-current-buffer buffer
+                   (setq buffer-read-only nil)
+                   (let ((point (when not-move
+                                  (goto-char (point-max)))))
+                     (mapc #'netease-cloud-music--content-build data)
+                     (goto-char (if point
+                                    point
+                                  (point-min))))
+                   (setq buffer-read-only t)
+                   (switch-to-buffer buffer)))))
 
 ;;; Comment Network API
 (defun netease-cloud-music-get-comment (id)
   "Get the song's comment by its ID and return it.
 Warning: This function doesn't have side-effect."
-  (let* ((get-page (1+ (/ (length (alist-get id netease-cloud-music-comments)) 10)))
+  (let* ((get-page (1+ (/ (length (alist-get id netease-cloud-music-comments)) 20)))
          (data (netease-cloud-music--request
                 (format
-                 "http://localhost:%s/comment/new?type=0&id=%d&pageSize=10&sortType=1&pageNo="
+                 "http://localhost:%s/comment/new?type=0&id=%d&sortType=1&pageNo=%d"
                  netease-cloud-music-api-port id get-page)))
-         result comment)
-    (if (/= (alist-get 'code data) 200)
+         result comment tmp)
+    (if (and (/= (setq tmp (alist-get 'code data)) 200)
+             (/= tmp 400))
         (netease-cloud-music-error "Failed to get comment of %d." id)
       (setq data (alist-get 'comments (alist-get 'data data)))
       (dotimes (i (length data))
@@ -352,22 +405,21 @@ CID is the comment's id."
   "The function to get comment id under cursor."
   (save-excursion
     (with-current-buffer (current-buffer)
-      (let (ov move-arg)
-        (setq move-arg
-              (cond ((and (= (line-beginning-position) (line-end-position))
-                          (null (overlays-at (point))))
-                     -1)
-                    ((/= (line-beginning-position) (line-end-position))
-                     1)))
-        (when move-arg
-          (forward-line move-arg)
-          (while (null (setq ov (overlays-at (point))))
-            (forward-line move-arg)))
-        (setq ov (if ov
-                     (car ov)
-                   (car (overlays-at (point)))))
-        (string-to-number
-         (buffer-substring (overlay-start ov) (overlay-end ov)))))))
+      (goto-char (line-beginning-position))
+      (if (not (bolp))
+          (forward-line -1)
+        (let (ov)
+          (catch 'not-move
+            (forward-line
+             (cond ((eobp) -1)
+                   ((null (setq ov (overlays-at (point)))) nil)
+                   ((null (overlay-get (setq ov (car ov))
+                                       'display))
+                    2)
+                   (t (throw 'not-move t))))
+            (setq ov (car (overlays-at (point)))))
+          (string-to-number
+           (buffer-substring (overlay-start ov) (overlay-end ov))))))))
 
 ;;; Advice
 (advice-add 'netease-cloud-music-quit :after

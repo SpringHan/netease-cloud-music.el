@@ -257,17 +257,18 @@ If the item is exists, return the cons."
                   (throw 'stop ele)))))
       item)))
 
-(defun netease-cloud-music--car-eq (key list &optional index)
+(defun netease-cloud-music--car-eq (key list &optional index all)
   "Find the item whose `car' is equal to KEY in LIST.
 If index is non-nil, return the item's index.
-Otherwise return item itself."
+Otherwise return item itself.
+When ALL is non-nil, return item & its index."
   (when (consp list)
     (catch 'result
       (dotimes (i (length list))
         (when (eq key (car (nth i list)))
-          (throw 'result (if index
-                             i
-                           (nth i list))))))))
+          (throw 'result (cond (all (cons i (nth i list)))
+                               (index i)
+                               (t (nth i list)))))))))
 
 (defun netease-cloud-music--get-lyric-time (lyric)
   "Get the LYRIC's time."
