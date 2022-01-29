@@ -2357,6 +2357,8 @@ If SONG-INFO is non-nil, get its song info."
             (throw 'song-list index))
           (setq index (1+ index)))))))
 
+;; TODO: Add repeat song name checking function at here.
+;;; And put it at `netease-cloud-music--track'.
 (defun netease-cloud-music--append (ele)
   "Append ELE to `netease-cloud-music-playlist'.
 ELE is a list."

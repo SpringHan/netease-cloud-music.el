@@ -27,16 +27,17 @@
         ;; Require it
         (require 'netease-cloud-music)
         (require 'netease-cloud-music-ui)       ;If you want to use the default TUI, you should add this line in your configuration.
+        (require 'netease-cloud-music-comment)  ;If you want comment feature
       #+end_src
 ** 可选功能
    1. ~netease-cloud-music-ui~
-
+      
       如果你想使用 TUI ，则需要在配置里加入：
 
       #+begin_src emacs-lisp
         (require 'netease-cloud-music-ui)
       #+end_src
-
+      
    2. ~netease-cloud-music-comment~
 
       如果你想使用评论功能，则需要在配置里加入：
@@ -44,6 +45,8 @@
       #+begin_src emacs-lisp
         (require 'netease-cloud-music-comment)
       #+end_src
+
+      注意：评论功能需要额外安装 ~async~ 包
 ** 快捷键
    | 快捷键 | 功能                                                                                            |
    |--------+-------------------------------------------------------------------------------------------------|
