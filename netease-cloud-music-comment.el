@@ -37,6 +37,10 @@
 (when (featurep 'netease-cloud-music-ui)
   (define-key netease-cloud-music-mode-map "R" #'netease-cloud-music-comment))
 
+(when (featurep 'eaf-netease-cloud-music)
+  (add-to-list 'eaf-netease-cloud-music-keybinding
+               (cons "R" "netease-cloud-music-comment")))
+
 (defcustom netease-cloud-music-comments nil
   "The list of comments."
   :type 'list
@@ -59,7 +63,6 @@
     (define-key map "n" #'netease-cloud-music-next-line-or-more)
     (define-key map "p" #'previous-line)
     (define-key map "c" #'netease-cloud-music-copy-content)
-    (define-key map "x" #'bury-buffer)
     (define-key map "R" #'netease-cloud-music-reply)
     (define-key map "g" #'beginning-of-buffer)
     (define-key map "G" #'end-of-buffer)
@@ -109,18 +112,24 @@ Format: (song-id . comment-id)."
 If there's a song like 'xxx - xxx' under cursor, 
 then get its id.
 Otherwise get the playing song's id."
-  (interactive (let ((song (netease-cloud-music--current-song)))
-                 (if song
-                     (progn
-                       (setq song
-                             (nth song (if netease-cloud-music-use-local-playlist
-                                           netease-cloud-music-playlist
-                                         netease-cloud-music-playlists-songs)))
-                       (list (car song) (nth 1 song)))
-                   (if netease-cloud-music-current-song
-                       (list (nth 2 netease-cloud-music-current-song)
-                             (car netease-cloud-music-current-song))
-                     (netease-cloud-music-error "Can't get any song!")))))
+  (interactive
+   (let ((song (cond ((string= (buffer-name) netease-cloud-music-buffer-name) ;For TUI
+                      (netease-cloud-music--current-song))
+                     ((string= (buffer-name) "eaf-netease-cloud-music") ;For EAF
+                      (let ((index (read-string "Enter the song's index (null for playing song): ")))
+                        (unless (string-empty-p index)
+                          (1- (string-to-number index))))))))
+     (if song
+         (progn
+           (setq song
+                 (nth song (if netease-cloud-music-use-local-playlist
+                               netease-cloud-music-playlist
+                             netease-cloud-music-playlists-songs)))
+           (list (car song) (nth 1 song)))
+       (if netease-cloud-music-current-song
+           (list (nth 2 netease-cloud-music-current-song)
+                 (car netease-cloud-music-current-song))
+         (netease-cloud-music-error "Can't get any song!")))))
   (let ((buf-name (format netease-cloud-music-comment-buffer-template
                           song-name))
         (comments (cons song-id
@@ -346,6 +355,7 @@ When NOT-MOVE is non-nil, keep cursor the current position after init."
                                     point
                                   (point-min))))
                    (setq buffer-read-only t)
+                   (message "[Netease-Cloud-Music]: Comments loading...done")
                    (switch-to-buffer buffer)))))
 
 ;;; Comment Network API
@@ -430,13 +440,6 @@ CID is the comment's id."
                             netease-cloud-music-edit-buffers))
               (setq netease-cloud-music-comment-buffers nil
                     netease-cloud-music-edit-buffers nil)))
-
-;;; Debug
-(defun spring/ncm-build-comment ()
-  "Debug function."
-  (netease-cloud-music--content-build
-   (car (netease-cloud-music-get-comment
-         (nth 2 netease-cloud-music-current-song)))))
 
 (provide 'netease-cloud-music-comment)
 

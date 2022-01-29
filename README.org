@@ -28,6 +28,22 @@
         (require 'netease-cloud-music)
         (require 'netease-cloud-music-ui)       ;If you want to use the default TUI, you should add this line in your configuration.
       #+end_src
+** 可选功能
+   1. ~netease-cloud-music-ui~
+
+      如果你想使用 TUI ，则需要在配置里加入：
+
+      #+begin_src emacs-lisp
+        (require 'netease-cloud-music-ui)
+      #+end_src
+
+   2. ~netease-cloud-music-comment~
+
+      如果你想使用评论功能，则需要在配置里加入：
+
+      #+begin_src emacs-lisp
+        (require 'netease-cloud-music-comment)
+      #+end_src
 ** 快捷键
    | 快捷键 | 功能                                                                                            |
    |--------+-------------------------------------------------------------------------------------------------|
@@ -69,6 +85,7 @@
    | J      | 将 storage 中歌曲加入到当前歌单                                                                 |
    | o      | 显示 storage 中歌曲                                                                             |
    | K      | 清空 storage                                                                                    |
+   | R      | 打开评论                                                                                        |
 ** 选择模式快捷键
    | 快捷键 | 功能                                                                                                |
    |--------+-----------------------------------------------------------------------------------------------------|
@@ -87,6 +104,20 @@
    | 快捷键  | 功能     |
    | C-c C-c | 保存更改 |
    | C-c C-k | 取消更改 |
+** 评论模式快捷键
+   | 快捷键 | 功能                                           |
+   | q      | 退出当前评论                                   |
+   | x      | 暂时关闭当前评论 buffer                        |
+   | n      | 下一行 或 加载更多评论 (当在 point-max 执行时) |
+   | p      | 上一行                                         |
+   | c      | 复制 cursor 下评论的内容                       |
+   | R      | 发表评论                                       |
+   | g      | 到达首行                                       |
+   | G      | 到达尾行                                           |
+** 评论发送的编辑模式快捷键
+   | 快捷键  | 功能     |
+   | C-c C-c | 发送评论 |
+   | C-c C-k | 取消评论 |
 ** 函数
    - ~netease-cloud-music~
 
