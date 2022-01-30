@@ -308,25 +308,15 @@ If it's t, meaning to use the local playlist."
       (progn
         (netease-cloud-music-interface-init)
         (setq buffer-read-only nil)
-        (if netease-cloud-music-use-local-playlist
-            (progn
-              (goto-char (point-max))
-              (search-backward "Local Playlist:")
-              (forward-line)
-              (narrow-to-region (point) (point-max)))
-
-          (goto-char (point-min))             ;Get the position of the playlist
-          (search-forward
-           (car (netease-cloud-music-alist-cdr
-                 netease-cloud-music-playlist-id netease-cloud-music-playlists))
-           nil t)
-          (forward-line)
-          (let ((start (line-beginning-position)))
-            (while (eq (get-text-property (point) 'face) 'font-lock-keyword-face)
-              (forward-line))
-            (forward-line -1)
-            (narrow-to-region start (line-end-position))
-            (goto-char (point-min))))
+        (erase-buffer)
+        (dolist (song (if netease-cloud-music-use-local-playlist
+                          netease-cloud-music-playlist
+                        netease-cloud-music-playlists-songs))
+          (insert (nth 1 song) " - " (nth 3 song)
+                  "\t\t"
+                  (format "$%d$" (car song))
+                  "\n"))
+        (goto-char (point-min))
         (when netease-cloud-music-show-lyric
           (with-current-buffer netease-cloud-music-buffer-name
             (netease-cloud-music-add-header-lyrics))))
@@ -336,7 +326,10 @@ If it's t, meaning to use the local playlist."
                                  netease-cloud-music-playlist
                                netease-cloud-music-playlists-songs)))
          (mapc (lambda (s)
-                 (insert (nth 1 s) " - " (nth 3 s) "\n"))
+                 (insert (nth 1 s) " - " (nth 3 s)
+                         "\t\t"
+                         (format "$%d$" (car s))
+                         "\n"))
                playlist-songs)
          (goto-char (point-min)))))))
 
@@ -371,7 +364,11 @@ If it's t, meaning to use the local playlist."
                            "eaf-netease-cloud-music-write")
       (goto-char (point-min))
       (while (not (eobp))
-        (setq current-song (netease-cloud-music--current-song))
+        (setq current-song (buffer-substring (line-beginning-position) (line-end-position)))
+        (setq current-song (netease-cloud-music--current-song
+                            (progn
+                              (string-match "\\(.*\\)\t\t\\$\\(.*\\)\\$" current-song)
+                              (match-string 2 current-song))))
         (when current-song
           (setq current-song (nth current-song
                                   (if netease-cloud-music-use-local-playlist
@@ -1132,11 +1129,17 @@ The format of GET is same as `netease-cloud-music-current-song'."
                         netease-cloud-music-playlist
                       netease-cloud-music-playlists-songs))
         (setq song-list (append song-list
-                                (list (format "%s - %s"
+                                (list (format "%s - %s $%s$"
                                               (nth 1 song)
-                                              (nth 3 song))))))
+                                              (nth 3 song)
+                                              (propertize
+                                               (number-to-string (car song))
+                                               'face
+                                               'font-lock-comment-face))))))
       (completing-read "Enter the song: " song-list))))
-  (let ((song-info (netease-cloud-music--current-song song)))
+  (let ((song-info (netease-cloud-music--current-song
+                    (progn (string-match "\\(.*\\) \\$\\(.*\\)\\$" song)
+                           (match-string 2 song)))))
     (when song-info
       (setq song-info (nth song-info (if netease-cloud-music-use-local-playlist
                                          netease-cloud-music-playlist
@@ -1814,9 +1817,7 @@ INDEX is the song's index in playlist."
             (setq netease-cloud-music-playlist
                   (delete (nth
                            (netease-cloud-music--current-song
-                            (format "%s - %s"
-                                    (car current-song)
-                                    (nth 1 current-song)))
+                            current-song)
                            netease-cloud-music-playlist)
                           netease-cloud-music-playlist))
             (netease-cloud-music-save-playlist)
@@ -2333,32 +2334,20 @@ NO-RESULT-LIMIT means do not limit the catch."
 (defun netease-cloud-music--current-song (&optional song-info)
   "Get the current song at point.
 If SONG-INFO is non-nil, get its song info."
-  (let ((song (cond ((stringp song-info)
-                     song-info)
-                    (song-info nil)
-                    (t (substring (thing-at-point 'line) 0 -1))))
-        (index 0)
-        name artist)
-    (if (or (null song-info)
-            (stringp song-info))
-        (ignore-errors
-          (string-match "\\(.*\\) - \\(.*\\)" song)
-          (setq name (match-string 1 song)
-                artist (match-string 2 song)))
-      (setq name (car song-info)
-            artist (nth 1 song-info)))
-    (when (and name artist)
-      (catch 'song-list
-        (dolist (song-info (if netease-cloud-music-use-local-playlist
-                               netease-cloud-music-playlist
-                             netease-cloud-music-playlists-songs))
-          (when (and (string= name (nth 1 song-info))
-                     (string= artist (nth 3 song-info)))
-            (throw 'song-list index))
-          (setq index (1+ index)))))))
+  (let ((id (pcase (type-of song-info)
+              ('cons (nth 2 song-info))
+              ('string (string-to-number song-info))
+              (_ (let ((ov (car (overlays-at (point)))))
+                   (when ov
+                     (string-to-number
+                      (buffer-substring (overlay-start ov)
+                                        (overlay-end ov)))))))))
+    (when id
+      (netease-cloud-music--car-eq id (if netease-cloud-music-use-local-playlist
+                                          netease-cloud-music-playlist
+                                        netease-cloud-music-playlists-songs)
+                                   t))))
 
-;; TODO: Add repeat song name checking function at here.
-;;; And put it at `netease-cloud-music--track'.
 (defun netease-cloud-music--append (ele)
   "Append ELE to `netease-cloud-music-playlist'.
 ELE is a list."

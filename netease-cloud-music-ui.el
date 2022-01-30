@@ -381,13 +381,17 @@ SONGS-INFO is the infos of the songs want to show."
           (when (and netease-cloud-music-playlist-id
                      (= netease-cloud-music-playlist-id (cdr playlist)))
             (mapc (lambda (s)
-                    (insert (format "%s - %s\n"
-                                    (propertize
-                                     (nth 1 s)
-                                     'face 'netease-cloud-music-song-face)
-                                    (propertize
-                                     (if (nth 3 s) (nth 3 s) "nil")
-                                     'face 'netease-cloud-music-artist-face))))
+                    (insert (number-to-string (car s)))
+                    (overlay-put (make-overlay (line-beginning-position) (line-end-position))
+                                 'display
+                                 (format "%s - %s"
+                                         (propertize
+                                          (nth 1 s)
+                                          'face 'netease-cloud-music-song-face)
+                                         (propertize
+                                          (if (nth 3 s) (nth 3 s) "nil")
+                                          'face 'netease-cloud-music-artist-face)))
+                    (insert "\n"))
                   netease-cloud-music-playlists-songs))))
 
       ;; Local Playlist
@@ -395,13 +399,17 @@ SONGS-INFO is the infos of the songs want to show."
         (insert (propertize "\nLocal Playlist:\n"
                             'face 'netease-cloud-music-playlists-face))
         (mapc (lambda (s)
-                (insert (format "%s - %s\n"
-                                (propertize
-                                 (nth 1 s)
-                                 'face 'netease-cloud-music-song-face)
-                                (propertize
-                                 (nth 3 s)
-                                 'face 'netease-cloud-music-artist-face))))
+                (insert (number-to-string (car s)))
+                (overlay-put (make-overlay (line-beginning-position) (line-end-position))
+                             'display
+                             (format "%s - %s"
+                                     (propertize
+                                      (nth 1 s)
+                                      'face 'netease-cloud-music-song-face)
+                                     (propertize
+                                      (nth 3 s)
+                                      'face 'netease-cloud-music-artist-face)))
+                (insert "\n"))
               netease-cloud-music-playlist))
       (setq buffer-read-only t)
       (goto-char (point-min))
@@ -430,8 +438,7 @@ PID is the playlist's id."
                                     (line-beginning-position)
                                     (line-end-position)))))
           (progn
-            (while (eq (get-text-property (point) 'face)
-                       'netease-cloud-music-song-face)
+            (while (overlays-at (point))
               (delete-region (line-beginning-position) (line-end-position))
               (delete-char 1)))
         (forward-line -1)
@@ -441,13 +448,17 @@ PID is the playlist's id."
           (if (null songs)
               (message "[Netease-Cloud-Music]: The playlist is empty.")
             (dolist (song songs)
-              (insert (format "%s - %s\n"
-                              (propertize
-                               (nth 1 song)
-                               'face 'netease-cloud-music-song-face)
-                              (propertize
-                               (if (nth 3 song) (nth 3 song) "nil")
-                               'face 'netease-cloud-music-artist-face))))))
+              (insert (number-to-string (car song)))
+              (overlay-put (make-overlay (line-beginning-position) (line-end-position))
+                           'display
+                           (format "%s - %s"
+                                   (propertize
+                                    (nth 1 song)
+                                    'face 'netease-cloud-music-song-face)
+                                   (propertize
+                                    (if (nth 3 song) (nth 3 song) "nil")
+                                    'face 'netease-cloud-music-artist-face)))
+              (insert "\n"))))
         (delete-char -1)))
     (setq-local buffer-read-only t)))
 
@@ -456,7 +467,7 @@ PID is the playlist's id."
 MOVE means do not care about the cursor's position."
   (let ((get (lambda ()
                (with-current-buffer netease-cloud-music-buffer-name
-                 (while (eq (get-text-property (point) 'face) 'netease-cloud-music-song-face) ;To get to the playlist's name
+                 (while (overlays-at (point)) ;To get to the playlist's name
                    (forward-line -1))
                  (alist-get (buffer-substring-no-properties
                              (line-beginning-position) (line-end-position))
@@ -488,7 +499,7 @@ MOVE means do not care about the cursor's position."
              (netease-cloud-music--switch-playlist playlist)
              (throw 'stop t)))
           
-          ((and (string-match-p "^\\(.*\\) - \\(.*\\)" (thing-at-point 'line))
+          ((and (overlays-at (point))
                 (eq major-mode 'netease-cloud-music-mode))
            (save-mark-and-excursion
              (let* ((current-line (line-number-at-pos))
