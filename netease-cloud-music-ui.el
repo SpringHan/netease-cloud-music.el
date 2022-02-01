@@ -607,7 +607,7 @@ MOVE means do not care about the cursor's position."
          (netease-cloud-music--keep-cursor-visible)))
       (?p
        (let ((song (netease-cloud-music--jump t)))
-         (when (string-match-p "^\\(.*\\) - \\(.*\\)" (car song))
+         (when (overlays-at (point))
            (goto-char (point-min))
            (forward-line (1- (cdr song)))
            (netease-cloud-music-play-song-at-point)))))))
