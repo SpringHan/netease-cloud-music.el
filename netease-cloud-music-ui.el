@@ -570,7 +570,9 @@ MOVE means do not care about the cursor's position."
                                 (propertize "s" 'face face)
                                 "witch playlist, "
                                 (propertize "p" 'face face)
-                                "lay song"
+                                "lay song, "
+                                (propertize "f" 'face face)
+                                " play at the first"
                                 "):")))))
   (with-current-buffer netease-cloud-music-buffer-name
     (pcase position
@@ -607,10 +609,12 @@ MOVE means do not care about the cursor's position."
          (netease-cloud-music--keep-cursor-visible)))
       (?p
        (let ((song (netease-cloud-music--jump t)))
-         (when (overlays-at (point))
+         (when (/= (string-to-number (substring (car song) 1)) 0)
            (goto-char (point-min))
            (forward-line (1- (cdr song)))
-           (netease-cloud-music-play-song-at-point)))))))
+           (netease-cloud-music-play-song-at-point))))
+      (?f (setq netease-cloud-music-playlist-song-index 0)
+          (netease-cloud-music-playlist-play)))))
 
 (defun netease-cloud-music--cdr-index (ele list)
   "Get the index of item in LIST which cdr is equal to ELE."
