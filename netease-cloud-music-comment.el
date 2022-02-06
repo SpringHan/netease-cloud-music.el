@@ -193,7 +193,7 @@ Otherwise get the playing song's id."
             ;; (pcase (read-char "[r]Comment, [R]eply")
             ;;       (?r nil)
             ;;       (?R (netease-cloud-music--get-current-comment-id)))
-            )
+            nil)
            (song-name (progn
                         (string-match
                          "\\*Netease-Cloud-Music-Comment:\\(.*\\)\\*"

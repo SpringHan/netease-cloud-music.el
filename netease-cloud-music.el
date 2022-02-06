@@ -1811,6 +1811,7 @@ INDEX is the song's index in playlist."
   (let ((current-song netease-cloud-music-current-song))
     (if (null current-song)
         (netease-cloud-music-error "You're playing nothing!")
+      ;; When sentinel get 'killed' signal, it will play the next song automatically.
       (netease-cloud-music-process-sentinel nil "killed")
       (if netease-cloud-music-use-local-playlist
           (progn
@@ -1824,7 +1825,12 @@ INDEX is the song's index in playlist."
             (netease-cloud-music-adjust-song-index))
         (netease-cloud-music--track
          nil netease-cloud-music-playlist-id
-         (nth 2 current-song))))))
+         (nth 2 current-song)))
+      (netease-cloud-music-for-eaf
+       :eaf-buffer
+       (netease-cloud-music-call-js "set_playlist" (json-encode-array
+                                                    netease-cloud-music-playlists-songs)))
+      (netease-cloud-music-tui-init))))
 
 (defun netease-cloud-music--delete-other-timer ()
   "Delete other playlist refresh timer."
