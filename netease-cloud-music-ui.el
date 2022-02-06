@@ -395,9 +395,9 @@ SONGS-INFO is the infos of the songs want to show."
                   netease-cloud-music-playlists-songs))))
 
       ;; Local Playlist
+      (insert (propertize "\nLocal Playlist:\n"
+                          'face 'netease-cloud-music-playlists-face))
       (when netease-cloud-music-playlist
-        (insert (propertize "\nLocal Playlist:\n"
-                            'face 'netease-cloud-music-playlists-face))
         (mapc (lambda (s)
                 (insert (number-to-string (car s)))
                 (overlay-put (make-overlay (line-beginning-position) (line-end-position))
