@@ -304,6 +304,19 @@ When ALL is non-nil, return item & its index."
                                      (cdr item))))))
     list))
 
+(defun netease-cloud-music--slice (list start end)
+  "Get slice of LIST from START to END."
+  (when (< start 0)
+    (setq start 0))
+  (let (result)
+    (catch 'stop
+      (dotimes (i (length list))
+        (when (= i end)
+          (throw 'stop t))
+        (when (>= i start)
+          (setq result (append result (list (nth i list)))))))
+    result))
+
 (netease-cloud-music-eaf-defun eaf-call-async (&rest args)
   args)
 

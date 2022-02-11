@@ -392,7 +392,7 @@ SONGS-INFO is the infos of the songs want to show."
                                           (if (nth 3 s) (nth 3 s) "nil")
                                           'face 'netease-cloud-music-artist-face)))
                     (insert "\n"))
-                  netease-cloud-music-playlists-songs))))
+                  (netease-cloud-music--limit-songs netease-cloud-music-playlists-songs)))))
 
       ;; Local Playlist
       (insert (propertize "\nLocal Playlist:\n"
@@ -410,10 +410,22 @@ SONGS-INFO is the infos of the songs want to show."
                                       (nth 3 s)
                                       'face 'netease-cloud-music-artist-face)))
                 (insert "\n"))
-              netease-cloud-music-playlist))
+              (netease-cloud-music--limit-songs netease-cloud-music-playlist)))
       (setq buffer-read-only t)
       (goto-char (point-min))
       (forward-line 3))))
+
+(defun netease-cloud-music--limit-songs (songs)
+  "Limit the SONGS if its value is out of 40."
+  (let ((start (if netease-cloud-music-playlist-song-index
+                   (- netease-cloud-music-playlist-song-index 20)
+                 0))
+        (end (if netease-cloud-music-playlist-song-index
+                 (+ netease-cloud-music-playlist-song-index 20)
+               39)))
+    (if (> (length songs) 40)
+        (netease-cloud-music--slice symbol-value songs start end)
+      songs)))
 
 (defun netease-cloud-music-toggle-playlist-songs (pid)
   "Toggle the songs of playlist under cursor.
