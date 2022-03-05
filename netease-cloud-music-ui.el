@@ -41,6 +41,11 @@
   :type 'boolean
   :group 'netease-cloud-music)
 
+(defcustom netease-cloud-music-fold-tips t
+  "If the tip for song's fold should be given."
+  :type 'boolean
+  :group 'netease-cloud-music)
+
 (defface netease-cloud-music-head-title-face
   '((t :height 1.1 :foreground "Red3"))
   "The head title face."
@@ -424,7 +429,11 @@ SONGS-INFO is the infos of the songs want to show."
                  (+ netease-cloud-music-playlist-song-index 20)
                39)))
     (if (> (length songs) 40)
-        (netease-cloud-music--slice symbol-value songs start end)
+        (prog1 (netease-cloud-music--slice songs start end)
+          (when netease-cloud-music-fold-tips
+            (progn
+              (message "[Netease-Cloud-Music]: Songs in current playlist is out of 40, so the others are folded.")
+              (setq netease-cloud-music-fold-tips nil))))
       songs)))
 
 (defun netease-cloud-music-toggle-playlist-songs (pid)
@@ -497,7 +506,8 @@ MOVE means do not care about the cursor's position."
                        'netease-cloud-music-playlists-face))
            (setq netease-cloud-music-use-local-playlist t
                  netease-cloud-music-playlists-songs nil
-                 netease-cloud-music-playlist-id nil)
+                 netease-cloud-music-playlist-id nil
+                 netease-cloud-music-fold-tips t)
            (when netease-cloud-music-playlist-refresh-timer
              (cancel-timer netease-cloud-music-playlist-refresh-timer)
              (setq netease-cloud-music-playlist-refresh-timer nil))
@@ -508,6 +518,7 @@ MOVE means do not care about the cursor's position."
            (let ((playlist (buffer-substring-no-properties
                             (line-beginning-position)
                             (line-end-position))))
+             (setq netease-cloud-music-fold-tips t)
              (netease-cloud-music--switch-playlist playlist)
              (throw 'stop t)))
           
@@ -532,7 +543,8 @@ MOVE means do not care about the cursor's position."
                                      (setq current-playlist
                                            (netease-cloud-music--get-current-playlist)))
                                    netease-cloud-music-playlist-id))))
-                 (setq netease-cloud-music-use-local-playlist current-mode)
+                 (setq netease-cloud-music-use-local-playlist current-mode
+                       netease-cloud-music-fold-tips t)
                  (if current-mode
                      (setq netease-cloud-music-playlists-songs nil
                            netease-cloud-music-playlist-id nil)
