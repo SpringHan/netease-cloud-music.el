@@ -73,38 +73,9 @@
   :type 'process
   :group 'netease-cloud-music)
 
-(defcustom netease-cloud-music-api-process nil
-  "The third-party api process."
-  :type 'process
-  :group 'netease-cloud-music)
-
 (defcustom netease-cloud-music-last-buffer nil
   "The buffer before calling `netease-cloud-music' funciton."
   :type 'buffer
-  :group 'netease-cloud-music)
-
-(defcustom netease-cloud-music-api-buffer "*Netease-API*"
-  "The third-party api process buffer."
-  :type 'buffer
-  :group 'netease-cloud-music)
-
-(defcustom netease-cloud-music-api-repo
-  "https://github.com/SpringHan/NeteaseCloudMusicApi.git"
-  "The git repo for ncm api.
-It will be cloned into `netease-cloud-music-api-dir' if `netease-cloud-music-api-type' is npm"
-  :type 'string
-  :group 'netease-cloud-music)
-
-(defcustom netease-cloud-music-api-docker-image
-  "docker.io/binaryify/netease_cloud_music_api:latest"
-  "The register for docker image of netease-cloud-music-api."
-  :group 'netease-cloud-music
-  :type 'string)
-
-(defcustom netease-cloud-music-docker-exec (or (executable-find "docker")
-                                               (executable-find "podman"))
-  "The docker executable path."
-  :type 'string
   :group 'netease-cloud-music)
 
 (defcustom netease-cloud-music-current-song nil
@@ -276,10 +247,6 @@ If it's t, meaning to use the local playlist."
   "http://music.163.com/song/media/outer/url?id="
   "The song link of Netease Music.")
 
-(defconst netease-cloud-music-api-dir
-  (expand-file-name "api/" netease-cloud-music-cache-directory)
-  "The directory for the third-party api.")
-
 (defconst netease-cloud-music-user-loginfo-file
   (expand-file-name "log-info" netease-cloud-music-cache-directory)
   "The login info file for the user.")
@@ -397,18 +364,6 @@ If it's t, meaning to use the local playlist."
         (netease-cloud-music-write-cancel)
         (netease-cloud-music-adjust-song-index)))))
 
-(defun netease-cloud-music-download-api ()
-  "Download the third-party API."
-  (interactive)
-  (if (netease-cloud-music--api-downloaded)
-      (netease-cloud-music-error "The third-party API has been downloaded!")
-    (async-shell-command
-     (format "git clone %s %s --depth=1 && cd %s && npm install"
-             netease-cloud-music-api-repo
-             netease-cloud-music-api-dir
-             netease-cloud-music-api-dir)
-     (get-buffer-create "*Netease-Cloud-Music-Api-Preperation*"))))
-
 (defun netease-cloud-music-process-live-p ()
   "Check if the Netease Music process is live.
 If it's live, return t.
@@ -459,7 +414,6 @@ Otherwise return nil."
     (setq netease-cloud-music-playlist-refresh-timer nil))
   (netease-cloud-music-cancel-timer t)
   (netease-cloud-music-save-playlist)
-  (netease-cloud-music-stop-api t)
   (when (get-buffer " *Request*")
     (kill-buffer " *Request*"))
   (netease-cloud-music-for-eaf
@@ -520,6 +474,7 @@ When REPEAT-MODE is non-nil, set current repeat mode to it."
      :eaf-buffer
      (netease-cloud-music-call-js "set_repeat_mode" (json-encode netease-cloud-music-repeat-mode)))))
 
+;; TODO: Rust function.
 (defun netease-cloud-music-get-lyric (song-id)
   "Get the lyrics of the song whose id is SONG-ID."
   (let (result lyric tlyric)
@@ -1325,75 +1280,7 @@ If HINT is not non-nil, show the hint message."
                               netease-cloud-music-playlists-songs)))))
   (netease-cloud-music-playlist-play))
 
-(defun netease-cloud-music--start-api-npm ()
-  "Start API by using npm."
-  (start-process "netease-api"
-                 netease-cloud-music-api-buffer
-                 "node"
-                 (expand-file-name "app.js" netease-cloud-music-api-dir)))
-
-(defun netease-cloud-music--start-api-docker ()
-  "Start API by using docker."
-  (let ((container-name "netease_cloud_music_api")
-        (containers
-         (with-temp-buffer
-           (call-process netease-cloud-music-docker-exec
-                         nil t nil "container" "ls" "--all")
-           (buffer-string))))
-    (if (string-match container-name containers)
-        (start-process "netease-api" netease-cloud-music-api-buffer
-                       netease-cloud-music-docker-exec
-                       "start" "-a" container-name)
-      (start-process "netease-api"
-                     netease-cloud-music-api-buffer
-                     netease-cloud-music-docker-exec
-                     "run" "--name" container-name
-                     "-p" (format "%s:3000" netease-cloud-music-api-port)
-                     netease-cloud-music-api-docker-image))))
-
-(defun netease-cloud-music--stop-api-npm ()
-  "Stop API launched by npm."
-  (if (not (get-buffer netease-cloud-music-api-buffer))
-      (delete-process netease-cloud-music-api-process)
-    (delete-process netease-cloud-music-api-buffer)))
-
-(defun netease-cloud-music--stop-api-docker ()
-  "Stop API launched by docker."
-  (if (not (get-buffer netease-cloud-music-api-buffer))
-      (delete-process netease-cloud-music-api-process)
-    (delete-process netease-cloud-music-api-buffer))
-  (start-process "netease-api-stop"
-                 netease-cloud-music-api-buffer
-                 netease-cloud-music-docker-exec
-                 "stop" "netease_cloud_music_api"))
-
-(netease-cloud-music-api-defun netease-cloud-music-start-api ()
-  "Start third-party API."
-  (if (netease-cloud-music-api-process-live-p)
-      (netease-cloud-music-error "API process is running!")
-    (setq netease-cloud-music-api-process
-          (when netease-cloud-music-api-type
-            (netease-cloud-music--api-func start))))
-  (message "[Netease-Cloud-Music]: API process started."))
-
-(netease-cloud-music-api-defun netease-cloud-music-stop-api (&optional no-error)
-  "Stop third-party api.
-NO-ERROR means to close error signal."
-  (interactive)
-  (if (not (netease-cloud-music-api-process-live-p))
-      (unless no-error
-        (netease-cloud-music-error "API process is not exists!"))
-    (netease-cloud-music--api-func stop)
-    (kill-buffer netease-cloud-music-api-buffer))
-  (setq netease-cloud-music-api-process nil)
-  (message "[Netease-Cloud-Music]: API process stoped."))
-
-(netease-cloud-music-api-defun netease-cloud-music-restart-api ()
-  "Restart the third-party API."
-  (interactive)
-  (netease-cloud-music-stop-api)
-  (netease-cloud-music-start-api))
-
+;; TODO: Rust function.
 (netease-cloud-music-api-defun netease-cloud-music-login (&optional phone password)
   "Login with PHONE number and PASSWORD."
   (interactive)
@@ -2359,16 +2246,6 @@ If SONG-INFO is non-nil, get its song info."
 ELE is a list."
   (dolist (item ele)
     (add-to-list 'netease-cloud-music-playlist item t 'equal)))
-
-(defun netease-cloud-music--api-downloaded ()
-  "Check if the third-party API has been downloaded."
-  (and (file-exists-p netease-cloud-music-api-dir)
-       (> (length (directory-files netease-cloud-music-api-dir)) 2)))
-
-(defun netease-cloud-music-api-process-live-p ()
-  "Check if the third-party API process is live."
-  (and netease-cloud-music-api-process
-       (process-live-p netease-cloud-music-api-process)))
 
 (provide 'netease-cloud-music)
 

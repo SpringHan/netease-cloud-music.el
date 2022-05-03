@@ -28,26 +28,7 @@
 
 (require 'request)
 
-(defcustom netease-cloud-music-api-type (cond ((executable-find "npm") 'npm)
-                                              ((or (executable-find "docker")
-                                                   (executable-find "podman"))
-                                               'docker))
-  "How to manage the api.
-
-Its value can be as following:
-npm: download api project into `netease-cloud-music-api-dir' and run npm
-locally.
-docker: use docker to start the api."
-  :group 'netease-cloud-music
-  :type '(choice (const :tag "Native" native)
-                 (const :tag "Docker" docker)))
-
 (defvar eaf--buffer-id)
-
-(defcustom netease-cloud-music-api-port "3000"
-  "The port for the API process."
-  :type 'string
-  :group 'netease-cloud-music)
 
 (defvar netease-cloud-music-phone nil
   "Phone number.")
@@ -56,26 +37,6 @@ docker: use docker to start the api."
   "Password.")
 
 (eval-and-compile
-  (defmacro netease-cloud-music-api-defun (name arg &optional docstring &rest body)
-    "Like `defun', but it will check the third-party api's status first.
-NAME is the function's name.
-ARG is the arguments for function.
-DOCSTRING is the doc-string for the function.
-BODY is the main codes for the function."
-    (declare (indent defun)
-             (debug defun)
-             (doc-string 3))
-    `(defun ,name ,arg
-       ,(when docstring
-          docstring)
-       ,(when (equal (car (car body)) 'interactive)
-          (prog1 (car body)
-            (pop body)))
-       (if (not (or (not (netease-cloud-music--api-need-downloaded))
-                    (netease-cloud-music--api-downloaded))) ; = !(x -> y)
-           (netease-cloud-music-error "The third-party API has not been donwloaded!")
-         ,@body)))
-
   (defmacro netease-cloud-music-for-eaf (&rest body)
     "The macro for eaf.  BODY is the Lisp you want to execute."
     (let ((with-eaf-buffer (eq (car body) :eaf-buffer)))
@@ -101,17 +62,7 @@ BODY is the body of the function."
     "Expand FORM in function-form."
     `(cl-function
       (lambda (&key data &allow-other-keys)
-        ,@form)))
-  
-  (defmacro netease-cloud-music--api-func (action)
-    "Call the function which is matched with `netease-cloud-music--.*-api-.*'.
-ACTION is its function."
-    (when netease-cloud-music-api-type
-      (let* ((sfunc (format "netease-cloud-music--%s-api-%s"
-                            (symbol-name action)
-                            (symbol-name netease-cloud-music-api-type)))
-             (func (intern sfunc)))
-        `(,func)))))
+        ,@form))))
 
 (defun netease-cloud-music-error (&rest seq)
   "Print the error message, it's SEQ."
@@ -195,10 +146,6 @@ Like `memq', but use `equal'."
           (throw 'result index))
         (setq index (1+ index)))
       nil)))
-
-(defun netease-cloud-music--api-need-downloaded ()
-  "Check if `netease-cloud-music-api-type' is depended on downloaded repo."
-  (memq netease-cloud-music-api-type '(npm)))
 
 (defun netease-cloud-music-api-request (url)
   "Request with the user info.
