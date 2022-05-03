@@ -1543,46 +1543,6 @@ If ADD is t, add songs.Otherwise delete songs."
                   (run-with-timer
                    1 1.5 #'netease-cloud-music--refresh-playlist-songs))))))))
 
-(netease-cloud-music-api-defun netease-cloud-music-like-song (id)
-  "Like or dislike song, ID is its id."
-  (let (option like-playlist result tmp)
-    (if (null netease-cloud-music-user-id)
-        (netease-cloud-music-error "You should login first!")
-
-      ;; To check if the song has already been liked.
-      (setq tmp
-            (netease-cloud-music-get-user-playlist netease-cloud-music-user-id))
-      (catch 'stop
-        (dolist (playlist tmp)
-          (when (string-match-p "\\(.*\\)喜欢的音乐" (car playlist))
-            (setq like-playlist (cdr playlist))
-            (setq tmp (netease-cloud-music-get-playlist-songs like-playlist))
-            (throw 'stop t))))          ;To let the liked songs to `tmp'.
-      (setq option (if (alist-get id tmp)
-                       "false"
-                     "true"))
-
-      (setq result (netease-cloud-music-api-request (format "like?like=%s&id=%s"
-                                                            option id)))
-      (if (or (null result) (/= 200 (alist-get 'code result)))
-          (netease-cloud-music-error "Failed to like/dislike the song!")
-        (message "[Netease-Cloud-Music]: %s the song successfully!"
-                 (if (string-equal option "true")
-                     "Liked "
-                   "Disliked"))
-        (when (and netease-cloud-music-playlist-id
-                   (= netease-cloud-music-playlist-id like-playlist))
-          (when (or (null netease-cloud-music-timer-protect)
-                    (eq netease-cloud-music-timer-protect 'like))
-            (run-with-timer
-             1 nil (lambda ()
-                     (message "[Netease-Cloud-Music]: Syncing the playlist...")))
-            (netease-cloud-music--delete-other-timer)
-            (setq netease-cloud-music-playlist-refresh-timer
-                  (run-with-timer
-                   1 1.5 #'netease-cloud-music--refresh-playlist-songs))))
-        (netease-cloud-music-tui-init)))))
-
 (netease-cloud-music-api-defun netease-cloud-music-get-recommend-songs ()
   "Get the recommend songs."
   (interactive)
