@@ -2,7 +2,7 @@
 
 ;; Author: SpringHan
 ;; Maintainer: SpringHan
-;; Version: 2.1
+;; Version: 2.2
 
 ;; This file is not part of GNU Emacs
 
@@ -25,8 +25,6 @@
 ;; Netease Cloud Music Client for Emacs.
 
 ;;; Code:
-
-(require 'request)
 
 (defvar eaf--buffer-id)
 
@@ -83,37 +81,6 @@ Otherwise return nil."
     (when (= result 121)
       t)))
 
-(defun netease-cloud-music-get-song (data)
-  "Read the Netease Music json DATA and return the result."
-  (let (song artist result)
-    (if (/= 200 (alist-get 'code data))
-        (netease-cloud-music-error "The song you search is error!")
-      (setq data (alist-get 'songs (alist-get 'result data)))
-      (dotimes (n (length data))
-        (setq song (aref data n)
-              artist (aref (alist-get 'artists song) 0))
-        (setq result (append result
-                             (list
-                              (list (alist-get 'id song)
-                                    (alist-get 'name song)
-                                    (alist-get 'id artist)
-                                    (alist-get 'name artist))))))
-      result)))
-
-(defun netease-cloud-music-get-playlists (data)
-  "Read the playlist json DATA searched from API."
-  (let (playlist result)
-    (if (/= 200 (alist-get 'code data))
-        (netease-cloud-music-error "The playlist you search is error!")
-      (setq data (alist-get 'playlists (alist-get 'result data)))
-      (dotimes (n (length data))
-        (setq playlist (aref data n))
-        (setq result (append result
-                             (list
-                              (cons (alist-get 'name playlist)
-                                    (alist-get 'id playlist))))))
-      result)))
-
 (defun netease-cloud-music--current-lyric (string)
   "Get the lyric from STRING."
   (ignore-errors
@@ -147,48 +114,48 @@ Like `memq', but use `equal'."
         (setq index (1+ index)))
       nil)))
 
-(defun netease-cloud-music-api-request (url)
-  "Request with the user info.
-URL is the url to request."
-  (let (result)
-    (setq url (format "http://localhost:%s/%s"
-                      netease-cloud-music-api-port url))
-    (request (format "http://localhost:%s/login/cellphone?phone=%s&md5_password=%s&countrycode=%s"
-                     netease-cloud-music-api-port
-                     (cdr netease-cloud-music-phone)
-                     netease-cloud-music-user-password
-                     (car netease-cloud-music-phone))
-      :success (netease-cloud-music-expand-form
-                data                    ;PlaceHolder
-                (request url
-                  :parser 'buffer-string
-                  :success (netease-cloud-music-expand-form
-                            (with-current-buffer (get-buffer-create " *Request*")
-                              (erase-buffer)
-                              (insert data)))
-                  :sync t))
-      :error (cl-function (lambda (&rest args &key error-thrown &allow-other-keys)
-                            (when (string-match-p "^exited abnormally with code \\(.*\\)"
-                                                  (cdr error-thrown))
-                              (message nil)) ;Ignore the warning when API has not finished starting.
-                            (when (get-buffer " *Request")
-                              (with-current-buffer " *Request*"
-                                (erase-buffer)))))
-      :sync t)
-    (when (get-buffer " *Request*")
-      (with-current-buffer " *Request*"
-        (unless (string-empty-p (buffer-string))
-          (setq result (json-read-from-string (buffer-string))))))
-    result))
+;; (defun netease-cloud-music-api-request (url)
+;;   "Request with the user info.
+;; URL is the url to request."
+;;   (let (result)
+;;     (setq url (format "http://localhost:%s/%s"
+;;                       netease-cloud-music-api-port url))
+;;     (request (format "http://localhost:%s/login/cellphone?phone=%s&md5_password=%s&countrycode=%s"
+;;                      netease-cloud-music-api-port
+;;                      (cdr netease-cloud-music-phone)
+;;                      netease-cloud-music-user-password
+;;                      (car netease-cloud-music-phone))
+;;       :success (netease-cloud-music-expand-form
+;;                 data                    ;PlaceHolder
+;;                 (request url
+;;                   :parser 'buffer-string
+;;                   :success (netease-cloud-music-expand-form
+;;                             (with-current-buffer (get-buffer-create " *Request*")
+;;                               (erase-buffer)
+;;                               (insert data)))
+;;                   :sync t))
+;;       :error (cl-function (lambda (&rest args &key error-thrown &allow-other-keys)
+;;                             (when (string-match-p "^exited abnormally with code \\(.*\\)"
+;;                                                   (cdr error-thrown))
+;;                               (message nil)) ;Ignore the warning when API has not finished starting.
+;;                             (when (get-buffer " *Request")
+;;                               (with-current-buffer " *Request*"
+;;                                 (erase-buffer)))))
+;;       :sync t)
+;;     (when (get-buffer " *Request*")
+;;       (with-current-buffer " *Request*"
+;;         (unless (string-empty-p (buffer-string))
+;;           (setq result (json-read-from-string (buffer-string))))))
+;;     result))
 
-(defun netease-cloud-music--request (url)
-  "Like `netease-cloud-music-api-request', but do not login."
-  (let (result)
-    (request url
-      :parser 'json-read
-      :success (netease-cloud-music-expand-form (setq result data))
-      :sync t)
-    result))
+;; (defun netease-cloud-music--request (url)
+;;   "Like `netease-cloud-music-api-request', but do not login."
+;;   (let (result)
+;;     (request url
+;;       :parser 'json-read
+;;       :success (netease-cloud-music-expand-form (setq result data))
+;;       :sync t)
+;;     result))
 
 (defun netease-cloud-music-alist-cdr (key list)
   "Find the first item in LIST which `cdr' is equal to KEY.

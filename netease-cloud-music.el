@@ -2,8 +2,8 @@
 
 ;; Author: SpringHan
 ;; Maintainer: SpringHan
-;; Version: 2.1
-;; Package-Requires: ((emacs "27.1") (request "0.3.3"))
+;; Version: 2.2
+;; Package-Requires: ((emacs "27.1"))
 ;; Homepage: https://github.com/SpringHan/netease-cloud-music.git
 ;; Keywords: multimedia
 
@@ -41,9 +41,6 @@
 ;;; Code:
 
 (require 'cl-lib)
-(require 'url)
-(require 'request)
-(require 'json)
 
 (require 'netease-cloud-music-functions)
 
@@ -88,6 +85,7 @@
   :type 'string
   :group 'netease-cloud-music)
 
+;; NOTE: Debug
 (defcustom netease-cloud-music-cache-directory
   (locate-user-emacs-file "netease-cloud-music")
   "The cache directory."
@@ -97,6 +95,14 @@
 (defcustom netease-cloud-music-playlist-file
   (expand-file-name "ncm-playlist" netease-cloud-music-cache-directory)
   "The cache directory of Netease Music."
+  :type 'string
+  :group 'netease-cloud-music)
+
+;; NOTE: Debug
+(defcustom netease-cloud-music-rust-dir
+  (expand-file-name "ncm-el-extension/target/release/libnetease_cloud_music_rust.so"
+                    netease-cloud-music-cache-directory)
+  "The directory which stores rust extension."
   :type 'string
   :group 'netease-cloud-music)
 
@@ -148,6 +154,7 @@ If it's nil, don't show the lyric."
   :type 'list
   :group 'netease-cloud-music)
 
+;; TODO: Next step: use rust to write a independent player.
 (defcustom netease-cloud-music-player-command
   '("mpv" "pause\n" "seek 5" "seek -5")
   "The player command for playing the online songs.
@@ -265,6 +272,10 @@ If it's t, meaning to use the local playlist."
 
 (defvar eaf-netease-cloud-music-user+list)
 
+;; NOTE: Debug
+;;; Load rust extension.
+(load netease-cloud-music-rust-dir t)
+
 ;;;###autoload
 (define-derived-mode netease-cloud-music-write-mode text-mode "Netease-Cloud-Music:Write"
   "The write mode for `netease-cloud-music'."
@@ -354,8 +365,10 @@ If it's t, meaning to use the local playlist."
             (progn
               (setq netease-cloud-music-playlist copy)
               (netease-cloud-music-save-playlist))
-          (netease-cloud-music-update-songs-order-in-playlist
-           netease-cloud-music-playlist-id copy)
+          (netease-cloud-music-playlist-refresh-launcher
+           (netease-cloud-music-rust-update-playlist-order
+            netease-cloud-music-playlist-id copy)
+           netease-cloud-music-playlist-id)
 
           (when (setq deleted (netease-cloud-music--deleted-item copy))
             (netease-cloud-music--track nil netease-cloud-music-playlist-id deleted)
@@ -414,8 +427,6 @@ Otherwise return nil."
     (setq netease-cloud-music-playlist-refresh-timer nil))
   (netease-cloud-music-cancel-timer t)
   (netease-cloud-music-save-playlist)
-  (when (get-buffer " *Request*")
-    (kill-buffer " *Request*"))
   (netease-cloud-music-for-eaf
    (kill-buffer "eaf-netease-cloud-music")))
 
@@ -437,9 +448,8 @@ SONG-NAME is a string."
   (let* ((artist-name (read-string "Enter the artist name(can be null): "))
          (search-content (format "%s %s" song-name artist-name))
          (search-result
-          (netease-cloud-music-get-song
-           (netease-cloud-music-request-from-api search-content nil
-                                                 netease-cloud-music-search-limit))))
+          (netease-cloud-music-rust-search
+           search-content nil netease-cloud-music-search-limit 1)))
     (setq netease-cloud-music-search-alist
           (cons search-content search-result)
           netease-cloud-music-search-page 1)
@@ -474,28 +484,6 @@ When REPEAT-MODE is non-nil, set current repeat mode to it."
      :eaf-buffer
      (netease-cloud-music-call-js "set_repeat_mode" (json-encode netease-cloud-music-repeat-mode)))))
 
-;; TODO: Rust function.
-(defun netease-cloud-music-get-lyric (song-id)
-  "Get the lyrics of the song whose id is SONG-ID."
-  (let (result lyric tlyric)
-    (request
-      ;;netease-cloud-music-lyric-api
-      (format "http://music.163.com/api/song/lyric?id=%s&lv=1&kv=1&tv=-1" song-id)
-      :type "GET"
-      :parser 'json-read
-      :success (netease-cloud-music-expand-form
-                (setq result data))
-      :sync t)
-    (if (or (null result) (/= 200 (alist-get 'code result)))
-        (netease-cloud-music-error "Failed to get the lyric!")
-      (setq lyric (alist-get 'lyric (alist-get 'lrc result)))
-      (when (eq netease-cloud-music-show-lyric 'all)
-        (setq tlyric (alist-get 'lyric (alist-get 'tlyric result))))
-      (setq result (if (and tlyric
-                            (not (string= tlyric "")))
-                       (cons lyric tlyric)
-                     lyric)))))
-
 (defun netease-cloud-music-change-lyric-type (&optional type)
   "Change the lyric's TYPE."
   (interactive)
@@ -508,7 +496,7 @@ When REPEAT-MODE is non-nil, set current repeat mode to it."
           (netease-cloud-music-update-lyrics))
     ('t (setq netease-cloud-music-show-lyric 'all)
         (setq netease-cloud-music-lyrics
-              (netease-cloud-music-get-lyric
+              (netease-cloud-music-rust-get-lyrics
                (nth 2 netease-cloud-music-current-song))
               netease-cloud-music-tlyric
               (split-string (cdr netease-cloud-music-lyrics) "\n"))
@@ -525,7 +513,7 @@ When REPEAT-MODE is non-nil, set current repeat mode to it."
 SONG-ID is the song's id for current lyric."
   (if netease-cloud-music-show-lyric
       (progn
-        (setq netease-cloud-music-lyric (netease-cloud-music-get-lyric song-id))
+        (setq netease-cloud-music-lyric (netease-cloud-music-rust-get-lyrics song-id))
         (with-current-buffer " *netease-cloud-music-play:process*"
           (erase-buffer))
         (when (and netease-cloud-music-buffer-name
@@ -925,8 +913,7 @@ DELETE-LYRICS means delete all the lyric headers."
                            'face '(:height 0.9)))))))
 
 (defun netease-cloud-music--string> (string1 string2)
-  "Check if STRING1 is bigger than STRING2.
-Mainly used to check the time."
+  "Check whether the time STRING1 is bigger than STRING2."
   (ignore-errors
     (let (string1-prefix string1-end
                          string2-prefix string2-end)
@@ -1052,8 +1039,10 @@ INDEX is the song's index."
           (setq tmp (append tmp (list (car song)))))
         (setq netease-cloud-music-playlists-songs
               (car (read-from-string backup)))
-        (netease-cloud-music-update-songs-order-in-playlist
-         netease-cloud-music-playlist-id tmp))
+        (netease-cloud-music-playlist-refresh-launcher
+         (netease-cloud-music-rust-update-playlist-order
+          netease-cloud-music-playlist-id tmp)
+         netease-cloud-music-playlist-id))
       (netease-cloud-music-tui-init))))
 
 (defun netease-cloud-music-adjust-song-index (&optional get)
@@ -1250,6 +1239,7 @@ If HINT is not non-nil, show the hint message."
                                                (alist-get 'name artist)))))))))
       result)))
 
+;; TODO: Replace.
 (defun netease-cloud-music-get-user-playlist (uid)
   "Get the playlists of the user whose user id is UID."
   (let (playlist-json playlist result)
@@ -1331,6 +1321,7 @@ ID is the song's id."
           (netease-cloud-music-error "The song whose id is %d cannot found!" id)
         (alist-get 'url (aref (alist-get 'data song-info) 0))))))
 
+;; TODO: Replace this function. Notice the eaf.
 (netease-cloud-music-api-defun netease-cloud-music--get-user-info ()
   "Get user's info automatically and then login."
   (let ((info (cdr (car (ignore-errors
@@ -1365,7 +1356,6 @@ ID is the song's id."
                                   netease-cloud-music-playlists)))))
 
 (netease-cloud-music-api-defun netease-cloud-music-create-playlist (&optional name)
-  "Create a new playlist named NAME."
   (interactive)
   (unless name
     (setq name (read-string "Enter the playlist's name: ")))
@@ -1412,7 +1402,7 @@ ID is the song's id."
         (netease-cloud-music-tui-init)))))
 
 (netease-cloud-music-api-defun netease-cloud-music-delete--list-playlist ()
-  "List the playlist then retunr it."
+  "List the playlist then return it."
   (let ((user-playlists (netease-cloud-music-get-user-playlist
                          netease-cloud-music-user-id))
         result)
@@ -1430,6 +1420,7 @@ ID is the song's id."
    pid (netease-cloud-music-get-user-playlist
         netease-cloud-music-user-id)))
 
+;; TODO: Replace this function.
 (netease-cloud-music-api-defun netease-cloud-music-update-playlist-name (id name)
   "Replace the name of playlist whose id is equal to ID with NAME."
   (let (result)
@@ -1487,30 +1478,21 @@ NAME is its name."
                      list)))
     result))
 
-(netease-cloud-music-api-defun netease-cloud-music-update-songs-order-in-playlist (pid song-ids)
-  "Update the songs' order in the playlist.
-PID is the id of the playlist, SONG-IDS is the list of songs' ids."
-  (let (result)
-    (if (null (netease-cloud-music--playlist-exists pid))
-        (netease-cloud-music-error "The playlist is not exists!")
-      (setq song-ids (netease-cloud-music--list-to-splited-string song-ids))
-      (setq result (netease-cloud-music-api-request
-                    (format "song/order/update?pid=%s&ids=\\[%s\\]"
-                            pid song-ids)))
-      (if (or (null result) (/= 200 (alist-get 'code result)))
-          (netease-cloud-music-error "Failed to update the songs' order in the playlist!")
-        (message "[Netease-Cloud-Music]: Updated songs order successfully!")
-        (when (and netease-cloud-music-playlist-id
-                   (= netease-cloud-music-playlist-id pid))
-          (when (or (null netease-cloud-music-timer-protect)
-                    (eq netease-cloud-music-timer-protect 'order))
+(defun netease-cloud-music-playlist-refresh-launcher (condition pid)
+  "Launch the playlist timer if CONDITION is non-nil.
+PID is the playlist's id."
+  (when (and netease-cloud-music-playlist-id
+             (= netease-cloud-music-playlist-id pid)
+             condition)
+    (when (or (null netease-cloud-music-timer-protect)
+              (eq netease-cloud-music-timer-protect 'order))
+      (run-with-timer
+       1 nil (lambda ()
+               (message "[Netease-Cloud-Music]: Syncing the playlist...")))
+      (netease-cloud-music--delete-other-timer)
+      (setq netease-cloud-music-playlist-refresh-timer
             (run-with-timer
-             1 nil (lambda ()
-                     (message "[Netease-Cloud-Music]: Syncing the playlist...")))
-            (netease-cloud-music--delete-other-timer)
-            (setq netease-cloud-music-playlist-refresh-timer
-                  (run-with-timer
-                   1 1.5 #'netease-cloud-music--refresh-playlist-songs))))))))
+             1 1.5 #'netease-cloud-music--refresh-playlist-songs)))))
 
 (netease-cloud-music-api-defun netease-cloud-music--track (add pid tracks)
   "Add or delete TRACKS with playlist whose id is PID.
@@ -1602,13 +1584,14 @@ If ADD is t, add songs.Otherwise delete songs."
                                                        result)))
          (netease-cloud-music-call-js "change_playlist_mode" (json-encode t)))))))
 
+;; TODO: If there's no cacha problem, delete timer.
 (defun netease-cloud-music--refresh-playlist-songs ()
   "Refresh the playlist songs."
   (if netease-cloud-music-use-local-playlist
       (when netease-cloud-music-playlist-refresh-timer
         (cancel-timer netease-cloud-music-playlist-refresh-timer)
         (setq netease-cloud-music-playlist-refresh-timer nil))
-    (let ((songs (netease-cloud-music-get-playlist-songs
+    (let ((songs (netease-cloud-music-rust-get-playlist-songs
                   netease-cloud-music-playlist-id)))
       (unless (equal songs netease-cloud-music-playlists-songs)
         (setq netease-cloud-music-playlists-songs songs)

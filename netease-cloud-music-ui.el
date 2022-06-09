@@ -2,7 +2,7 @@
 
 ;; Author: SpringHan
 ;; Maintainer: SpringHan
-;; Version: 2.1
+;; Version: 2.2
 
 ;; This file is not part of GNU Emacs
 
@@ -286,6 +286,7 @@
                          (progn
                            (cancel-timer netease-cloud-music-login-timer)
                            (setq netease-cloud-music-login-timer nil))
+                       ;; TODO: Replace this function.
                        (netease-cloud-music--get-user-info)
                        (ignore-errors
                          (setq netease-cloud-music-playlists

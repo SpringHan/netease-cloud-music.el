@@ -2,7 +2,7 @@
 
 ;; Author: SpringHan
 ;; Maintainer: SpringHan
-;; Version: 2.1
+;; Version: 2.2
 
 ;; This file is not part of GNU Emacs
 
@@ -359,6 +359,7 @@ When NOT-MOVE is non-nil, keep cursor the current position after init."
                    (switch-to-buffer buffer)))))
 
 ;;; Comment Network API
+;; TODO: Replace.
 (defun netease-cloud-music-get-comment (id)
   "Get the song's comment by its ID and return it.
 Warning: This function doesn't have side-effect."
@@ -383,6 +384,7 @@ Warning: This function doesn't have side-effect."
                                     (alist-get 'avatarUrl (car comment)))))))
       result)))
 
+;; TODO: Replace.
 (defun netease-cloud-music-comment-or-reply (sid content &optional cid)
   "The function to comment or reply CONTENT to a comment.
 SID is the song's id.
@@ -398,17 +400,17 @@ When CID is non-nil, means to reply comment with cid(its id)."
       (message "[Netease-Cloud-Music]: Successfully sent a comment!")
       send)))
 
-(defun netease-cloud-music-delete-comment (sid cid)
-  "The function to delete comment.
-SID is the song's id.
-CID is the comment's id."
-  (let ((del (netease-cloud-music-api-request
-              (format "comment?t=0&type=0&id=%d&commentId=%d"
-                      sid cid))))
-    (if (/= (alist-get 'code del) 200)
-        (netease-cloud-music-error "Failed to delete the comment!")
-      (message "[Netease-Cloud-Music]: Successfully deleted a comment!")
-      del)))
+;; (defun netease-cloud-music-delete-comment (sid cid)
+;;   "The function to delete comment.
+;; SID is the song's id.
+;; CID is the comment's id."
+;;   (let ((del (netease-cloud-music-api-request
+;;               (format "comment?t=0&type=0&id=%d&commentId=%d"
+;;                       sid cid))))
+;;     (if (/= (alist-get 'code del) 200)
+;;         (netease-cloud-music-error "Failed to delete the comment!")
+;;       (message "[Netease-Cloud-Music]: Successfully deleted a comment!")
+;;       del)))
 
 ;;; Comment UI API
 (defun netease-cloud-music--get-current-comment-id ()
