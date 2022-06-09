@@ -630,9 +630,10 @@ SONG-ID is the song's id for current lyric."
                              (car netease-cloud-music-player-command)
                              (if netease-cloud-music-user-id
                                  (if (setq tmp
-                                           (netease-cloud-music--song-url-by-user
+                                           (netease-cloud-music-rust-song-url
                                             song-id))
                                      tmp
+                                   ;; TODO: Define a variable to deal with this problem, which provides options.
                                    (message
                                     "[Netease-Cloud-Music]: Cannot get the song's info %s: %s, now play the next."
                                     song-id song-name)
@@ -1239,28 +1240,6 @@ If HINT is not non-nil, show the hint message."
                                                (alist-get 'name artist)))))))))
       result)))
 
-;; TODO: Replace.
-(defun netease-cloud-music-get-user-playlist (uid)
-  "Get the playlists of the user whose user id is UID."
-  (let (playlist-json playlist result)
-    (request "https://music.163.com/api/user/playlist/"
-      :type "POST"
-      :data `(("offset" . "0")
-              ("uid" . ,uid)
-              ("limit" . "1000"))
-      :parser 'json-read
-      :success (netease-cloud-music-expand-form (setq playlist-json data))
-      :sync t)
-    (if (/= 200 (alist-get 'code playlist-json))
-        (netease-cloud-music-error "The uid can not found!")
-      (setq playlist-json (alist-get 'playlist playlist-json))
-      (dotimes (n (length playlist-json))
-        (setq playlist (aref playlist-json n))
-        (setq result (append result
-                             (list (cons (alist-get 'name playlist)
-                                         (alist-get 'id playlist))))))
-      result)))
-
 (defun netease-cloud-music-random-play ()
   "Return the random number for the playlist as an index."
   (interactive)
@@ -1309,17 +1288,6 @@ If HINT is not non-nil, show the hint message."
          (netease-cloud-music-call-js "update_user_info"
                                       (json-encode other-info)))
         (netease-cloud-music--refresh-playlists)))))
-
-(netease-cloud-music-api-defun netease-cloud-music--song-url-by-user (id)
-  "Get the song's url by user.
-ID is the song's id."
-  (let ((song-info (netease-cloud-music-api-request
-                    (format "song/url?id=%d" id))))
-    (if (null song-info)
-        (netease-cloud-music-error "The API can't be used, maybe it's starting!")
-      (if (/= 200 (alist-get 'code song-info))
-          (netease-cloud-music-error "The song whose id is %d cannot found!" id)
-        (alist-get 'url (aref (alist-get 'data song-info) 0))))))
 
 ;; TODO: Replace this function. Notice the eaf.
 (netease-cloud-music-api-defun netease-cloud-music--get-user-info ()
@@ -1460,7 +1428,9 @@ NAME is its name."
          (setq pid (cdr-safe playlist)))
        (netease-cloud-music-call-js "set_index_style" (json-encode nil))))
     (setq name (read-string "Enter the new name: ")))
-  (netease-cloud-music-update-playlist-name pid name)
+  (message (if (netease-cloud-music-update-playlist-name pid name)
+               "[Netease-Cloud-Music]: Updated playlist's name successfully!"
+             (netease-cloud-music-error "Failed to update the name of the playlist!")))
   (netease-cloud-music-tui-init))
 
 (defun netease-cloud-music--list-to-splited-string (list)
@@ -1532,7 +1502,7 @@ If ADD is t, add songs.Otherwise delete songs."
         result song artist)
     (if (or (null songs)
             (/= 200 (alist-get 'code songs)))
-        (netease-cloud-music-error "Cannot get recomend songs!")
+        (netease-cloud-music-error "Cannot get recommend songs!")
       (setq songs (alist-get 'dailySongs (alist-get 'data songs)))
       (dotimes (i (length songs))
         (setq song (aref songs i)
@@ -1572,7 +1542,7 @@ If ADD is t, add songs.Otherwise delete songs."
                       (list (cons (alist-get 'name playlist)
                                   (alist-get 'id playlist))))))
       (setq netease-cloud-music-search-playlists
-            (append '("Recomend playlists") result))
+            (append '("Recommend playlists") result))
       (if (get-buffer netease-cloud-music-buffer-name)
           (netease-cloud-music-playlist--open-switch result)
         (setq netease-cloud-music-search-type 'playlist)

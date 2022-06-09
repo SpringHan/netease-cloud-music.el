@@ -133,8 +133,10 @@ Otherwise get the playing song's id."
   (let ((buf-name (format netease-cloud-music-comment-buffer-template
                           song-name))
         (comments (cons song-id
-                        (netease-cloud-music-get-comment
-                         song-id))))
+                        (or (netease-cloud-music-rust-get-comment
+                             song-id (netease-cloud-music-comment--get-page))
+                            (netease-cloud-music-error
+                             "Failed to get comments!")))))
     (if (get-buffer buf-name)
         (switch-to-buffer buf-name)
       (with-current-buffer (get-buffer-create buf-name)
@@ -167,8 +169,10 @@ Otherwise get the playing song's id."
     (let ((target-info netease-cloud-music-target-info)
           (content (buffer-string)))
       (netease-cloud-music-edit-cancel)
-      (netease-cloud-music-comment-or-reply
-       (car target-info) content (cdr target-info)))))
+      (if (netease-cloud-music-rust-create-comment
+           (car target-info) content (cdr target-info))
+          (message "[Netease-Cloud-Music]: Successfully sent a comment!")
+        (netease-cloud-music-error "Failed to comment!")))))
 
 (defun netease-cloud-music-edit-cancel ()
   "Cancel the editing."
@@ -189,6 +193,7 @@ Otherwise get the playing song's id."
     (let* ((song-id netease-cloud-music-buffer-song-id)
            (height (* 0.45 (window-body-height nil t)))
            (cid
+            ;; TODO: Try to tackle the bug.
             ;; Network API has some bug, failed to achieve this feature.
             ;; (pcase (read-char "[r]Comment, [R]eply")
             ;;       (?r nil)
@@ -250,8 +255,9 @@ Otherwise get the playing song's id."
   (if (not (eobp))
       (forward-line)
     (when (yes-or-no-p "Get more comments?")
-      (let ((new-comments (netease-cloud-music-get-comment
-                           netease-cloud-music-buffer-song-id))
+      (let ((new-comments (netease-cloud-music-rust-get-comment
+                           netease-cloud-music-buffer-song-id
+                           (netease-cloud-music-comment--get-page)))
             content-info)
         (if (null new-comments)
             (netease-cloud-music-error "Failed to get more comments!")
@@ -264,6 +270,10 @@ Otherwise get the playing song's id."
           (netease-cloud-music--async-init-comment-buffer
            new-comments (buffer-name) t)
           (message "[Netease-Cloud-Music]: Getting more comments..."))))))
+
+(defun netease-cloud-music-comment--get-page ()
+  "Calculate the page of comment."
+  (1+ (/ (length (alist-get id netease-cloud-music-comments)) 20)))
 
 (defun netease-cloud-music--throw-mass-suffix (content)
   "Throw the mass suffix like '^M' of CONTENT."
@@ -357,48 +367,6 @@ When NOT-MOVE is non-nil, keep cursor the current position after init."
                    (setq buffer-read-only t)
                    (message "[Netease-Cloud-Music]: Comments loading...done")
                    (switch-to-buffer buffer)))))
-
-;;; Comment Network API
-;; TODO: Replace.
-(defun netease-cloud-music-get-comment (id)
-  "Get the song's comment by its ID and return it.
-Warning: This function doesn't have side-effect."
-  (let* ((get-page (1+ (/ (length (alist-get id netease-cloud-music-comments)) 20)))
-         (data (netease-cloud-music--request
-                (format
-                 "http://localhost:%s/comment/new?type=0&id=%d&sortType=1&pageNo=%d"
-                 netease-cloud-music-api-port id get-page)))
-         result comment tmp)
-    (if (and (/= (setq tmp (alist-get 'code data)) 200)
-             (/= tmp 400))
-        (netease-cloud-music-error "Failed to get comment of %d." id)
-      (setq data (alist-get 'comments (alist-get 'data data)))
-      (dotimes (i (length data))
-        (setq comment (aref data i))
-        (setq result (append result
-                             (list
-                              (list (alist-get 'commentId comment)
-                                    (netease-cloud-music--throw-mass-suffix
-                                     (alist-get 'content comment))
-                                    (alist-get 'nickname (car comment))
-                                    (alist-get 'avatarUrl (car comment)))))))
-      result)))
-
-;; TODO: Replace.
-(defun netease-cloud-music-comment-or-reply (sid content &optional cid)
-  "The function to comment or reply CONTENT to a comment.
-SID is the song's id.
-When CID is non-nil, means to reply comment with cid(its id)."
-  (let ((send (netease-cloud-music-api-request
-               (format "comment?t=%s&type=0&id=%d&content=%s"
-                       (if cid
-                           (format "2&commentID=%d" cid)
-                         "1")
-                       sid (url-encode-url content)))))
-    (if (/= (alist-get 'code send) 200)
-        (netease-cloud-music-error "Failed to comment!")
-      (message "[Netease-Cloud-Music]: Successfully sent a comment!")
-      send)))
 
 ;; (defun netease-cloud-music-delete-comment (sid cid)
 ;;   "The function to delete comment.
