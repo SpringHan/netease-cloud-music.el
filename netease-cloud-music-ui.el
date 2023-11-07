@@ -2,7 +2,7 @@
 
 ;; Author: SpringHan
 ;; Maintainer: SpringHan
-;; Version: 2.0
+;; Version: 2.1
 
 ;; This file is not part of GNU Emacs
 
@@ -38,6 +38,11 @@
 
 (defcustom netease-cloud-music-line-number-relative nil
   "If the line number is relative."
+  :type 'boolean
+  :group 'netease-cloud-music)
+
+(defcustom netease-cloud-music-fold-tips t
+  "If the tip for song's fold should be given."
   :type 'boolean
   :group 'netease-cloud-music)
 
@@ -387,31 +392,55 @@ SONGS-INFO is the infos of the songs want to show."
           (when (and netease-cloud-music-playlist-id
                      (= netease-cloud-music-playlist-id (cdr playlist)))
             (mapc (lambda (s)
-                    (insert (format "%s - %s\n"
-                                    (propertize
-                                     (nth 1 s)
-                                     'face 'netease-cloud-music-song-face)
-                                    (propertize
-                                     (if (nth 3 s) (nth 3 s) "nil")
-                                     'face 'netease-cloud-music-artist-face))))
-                  netease-cloud-music-playlists-songs))))
+                    (insert (number-to-string (car s)))
+                    (overlay-put (make-overlay (line-beginning-position) (line-end-position))
+                                 'display
+                                 (format "%s - %s"
+                                         (propertize
+                                          (nth 1 s)
+                                          'face 'netease-cloud-music-song-face)
+                                         (propertize
+                                          (if (nth 3 s) (nth 3 s) "nil")
+                                          'face 'netease-cloud-music-artist-face)))
+                    (insert "\n"))
+                  (netease-cloud-music--limit-songs netease-cloud-music-playlists-songs)))))
 
       ;; Local Playlist
+      (insert (propertize "\nLocal Playlist:\n"
+                          'face 'netease-cloud-music-playlists-face))
       (when netease-cloud-music-playlist
-        (insert (propertize "\nLocal Playlist:\n"
-                            'face 'netease-cloud-music-playlists-face))
         (mapc (lambda (s)
-                (insert (format "%s - %s\n"
-                                (propertize
-                                 (nth 1 s)
-                                 'face 'netease-cloud-music-song-face)
-                                (propertize
-                                 (nth 3 s)
-                                 'face 'netease-cloud-music-artist-face))))
-              netease-cloud-music-playlist))
+                (insert (number-to-string (car s)))
+                (overlay-put (make-overlay (line-beginning-position) (line-end-position))
+                             'display
+                             (format "%s - %s"
+                                     (propertize
+                                      (nth 1 s)
+                                      'face 'netease-cloud-music-song-face)
+                                     (propertize
+                                      (nth 3 s)
+                                      'face 'netease-cloud-music-artist-face)))
+                (insert "\n"))
+              (netease-cloud-music--limit-songs netease-cloud-music-playlist)))
       (setq buffer-read-only t)
       (goto-char (point-min))
       (forward-line 3))))
+
+(defun netease-cloud-music--limit-songs (songs)
+  "Limit the SONGS if its value is out of 40."
+  (let ((start (if netease-cloud-music-playlist-song-index
+                   (- netease-cloud-music-playlist-song-index 20)
+                 0))
+        (end (if netease-cloud-music-playlist-song-index
+                 (+ netease-cloud-music-playlist-song-index 20)
+               39)))
+    (if (> (length songs) 40)
+        (prog1 (netease-cloud-music--slice songs start end)
+          (when netease-cloud-music-fold-tips
+            (progn
+              (message "[Netease-Cloud-Music]: Songs in current playlist is out of 40, so the others are folded.")
+              (setq netease-cloud-music-fold-tips nil))))
+      songs)))
 
 (defun netease-cloud-music-toggle-playlist-songs (pid)
   "Toggle the songs of playlist under cursor.
@@ -436,8 +465,7 @@ PID is the playlist's id."
                                     (line-beginning-position)
                                     (line-end-position)))))
           (progn
-            (while (eq (get-text-property (point) 'face)
-                       'netease-cloud-music-song-face)
+            (while (overlays-at (point))
               (delete-region (line-beginning-position) (line-end-position))
               (delete-char 1)))
         (forward-line -1)
@@ -447,13 +475,17 @@ PID is the playlist's id."
           (if (null songs)
               (message "[Netease-Cloud-Music]: The playlist is empty.")
             (dolist (song songs)
-              (insert (format "%s - %s\n"
-                              (propertize
-                               (nth 1 song)
-                               'face 'netease-cloud-music-song-face)
-                              (propertize
-                               (if (nth 3 song) (nth 3 song) "nil")
-                               'face 'netease-cloud-music-artist-face))))))
+              (insert (number-to-string (car song)))
+              (overlay-put (make-overlay (line-beginning-position) (line-end-position))
+                           'display
+                           (format "%s - %s"
+                                   (propertize
+                                    (nth 1 song)
+                                    'face 'netease-cloud-music-song-face)
+                                   (propertize
+                                    (if (nth 3 song) (nth 3 song) "nil")
+                                    'face 'netease-cloud-music-artist-face)))
+              (insert "\n"))))
         (delete-char -1)))
     (setq-local buffer-read-only t)))
 
@@ -462,7 +494,7 @@ PID is the playlist's id."
 MOVE means do not care about the cursor's position."
   (let ((get (lambda ()
                (with-current-buffer netease-cloud-music-buffer-name
-                 (while (eq (get-text-property (point) 'face) 'netease-cloud-music-song-face) ;To get to the playlist's name
+                 (while (overlays-at (point)) ;To get to the playlist's name
                    (forward-line -1))
                  (alist-get (buffer-substring-no-properties
                              (line-beginning-position) (line-end-position))
@@ -480,7 +512,8 @@ MOVE means do not care about the cursor's position."
                        'netease-cloud-music-playlists-face))
            (setq netease-cloud-music-use-local-playlist t
                  netease-cloud-music-playlists-songs nil
-                 netease-cloud-music-playlist-id nil)
+                 netease-cloud-music-playlist-id nil
+                 netease-cloud-music-fold-tips t)
            (when netease-cloud-music-playlist-refresh-timer
              (cancel-timer netease-cloud-music-playlist-refresh-timer)
              (setq netease-cloud-music-playlist-refresh-timer nil))
@@ -491,10 +524,11 @@ MOVE means do not care about the cursor's position."
            (let ((playlist (buffer-substring-no-properties
                             (line-beginning-position)
                             (line-end-position))))
+             (setq netease-cloud-music-fold-tips t)
              (netease-cloud-music--switch-playlist playlist)
              (throw 'stop t)))
           
-          ((and (string-match-p "^\\(.*\\) - \\(.*\\)" (thing-at-point 'line))
+          ((and (overlays-at (point))
                 (eq major-mode 'netease-cloud-music-mode))
            (save-mark-and-excursion
              (let* ((current-line (line-number-at-pos))
@@ -515,7 +549,8 @@ MOVE means do not care about the cursor's position."
                                      (setq current-playlist
                                            (netease-cloud-music--get-current-playlist)))
                                    netease-cloud-music-playlist-id))))
-                 (setq netease-cloud-music-use-local-playlist current-mode)
+                 (setq netease-cloud-music-use-local-playlist current-mode
+                       netease-cloud-music-fold-tips t)
                  (if current-mode
                      (setq netease-cloud-music-playlists-songs nil
                            netease-cloud-music-playlist-id nil)
@@ -565,7 +600,9 @@ MOVE means do not care about the cursor's position."
                                 (propertize "s" 'face face)
                                 "witch playlist, "
                                 (propertize "p" 'face face)
-                                "lay song"
+                                "lay song, "
+                                (propertize "f" 'face face)
+                                " play at the first"
                                 "):")))))
   (with-current-buffer netease-cloud-music-buffer-name
     (pcase position
@@ -602,10 +639,12 @@ MOVE means do not care about the cursor's position."
          (netease-cloud-music--keep-cursor-visible)))
       (?p
        (let ((song (netease-cloud-music--jump t)))
-         (when (string-match-p "^\\(.*\\) - \\(.*\\)" (car song))
+         (when (/= (string-to-number (substring (car song) 1)) 0)
            (goto-char (point-min))
            (forward-line (1- (cdr song)))
-           (netease-cloud-music-play-song-at-point)))))))
+           (netease-cloud-music-play-song-at-point))))
+      (?f (setq netease-cloud-music-playlist-song-index 0)
+          (netease-cloud-music-playlist-play)))))
 
 (defun netease-cloud-music--cdr-index (ele list)
   "Get the index of item in LIST which cdr is equal to ELE."

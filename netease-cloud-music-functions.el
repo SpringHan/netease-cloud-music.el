@@ -2,7 +2,7 @@
 
 ;; Author: SpringHan
 ;; Maintainer: SpringHan
-;; Version: 2.0
+;; Version: 2.1
 
 ;; This file is not part of GNU Emacs
 
@@ -245,6 +245,15 @@ URL is the url to request."
           (setq result (json-read-from-string (buffer-string))))))
     result))
 
+(defun netease-cloud-music--request (url)
+  "Like `netease-cloud-music-api-request', but do not login."
+  (let (result)
+    (request url
+      :parser 'json-read
+      :success (netease-cloud-music-expand-form (setq result data))
+      :sync t)
+    result))
+
 (defun netease-cloud-music-alist-cdr (key list)
   "Find the first item in LIST which `cdr' is equal to KEY.
 Use `equal' to compare.
@@ -259,24 +268,18 @@ If the item is exists, return the cons."
                   (throw 'stop ele)))))
       item)))
 
-(defun netease-cloud-music-encode-url (text)
-  "Change the special chars in the TEXT to the escape character."
-  (let ((chars (string-to-list text))
-        tmp)
-    (setq text nil)
-    (dolist (char chars)
-      (setq tmp (pcase char
-                  (32 "%20")
-                  (43 "%2B")
-                  (47 "%2F")
-                  (63 "%3F")
-                  (37 "%25")
-                  (35 "%23")
-                  (38 "%26")
-                  (61 "%3D")
-                  (_ (char-to-string char))))
-      (setq text (concat text tmp)))
-    text))
+(defun netease-cloud-music--car-eq (key list &optional index all)
+  "Find the item whose `car' is equal to KEY in LIST.
+If index is non-nil, return the item's index.
+Otherwise return item itself.
+When ALL is non-nil, return item & its index."
+  (when (consp list)
+    (catch 'result
+      (dotimes (i (length list))
+        (when (eq key (car (nth i list)))
+          (throw 'result (cond (all (cons i (nth i list)))
+                               (index i)
+                               (t (nth i list)))))))))
 
 (defun netease-cloud-music--get-lyric-time (lyric)
   "Get the LYRIC's time."
@@ -311,6 +314,19 @@ If the item is exists, return the cons."
                          (list (list (car item)
                                      (cdr item))))))
     list))
+
+(defun netease-cloud-music--slice (list start end)
+  "Get slice of LIST from START to END."
+  (when (< start 0)
+    (setq start 0))
+  (let (result)
+    (catch 'stop
+      (dotimes (i (length list))
+        (when (= i end)
+          (throw 'stop t))
+        (when (>= i start)
+          (setq result (append result (list (nth i list)))))))
+    result))
 
 (netease-cloud-music-eaf-defun eaf-call-async (&rest args)
   args)
