@@ -180,7 +180,7 @@
   :group 'netease-cloud-music
   :abbrev-table nil
   :syntax-table nil
-  ;; (linum-mode -1)
+  (if (fboundp 'linum-mode) (linum-mode -1))
   (setq buffer-read-only t
         truncate-lines t))
 
