@@ -31,18 +31,26 @@
 (defcustom netease-cloud-music-api-type (cond ((executable-find "npm") 'npm)
                                               ((or (executable-find "docker")
                                                    (executable-find "podman"))
-                                               'docker))
+                                               'docker)
+					      ((t 'remote)))
   "How to manage the api.
 
 Its value can be as following:
 npm: download api project into `netease-cloud-music-api-dir' and run npm
 locally.
-docker: use docker to start the api."
+docker: use docker to start the api.
+remote: use remote api."
   :group 'netease-cloud-music
   :type '(choice (const :tag "Native" native)
-                 (const :tag "Docker" docker)))
+                 (const :tag "Docker" docker)
+                 (const :tag "Remote" remote)))
 
 (defvar eaf--buffer-id)
+
+(defcustom netease-cloud-music-api-address "http://localhost"
+  "The address for the remote API."
+  :type 'string
+  :group 'netease-cloud-music)
 
 (defcustom netease-cloud-music-api-port "3000"
   "The port for the API process."
@@ -204,9 +212,12 @@ Like `memq', but use `equal'."
   "Request with the user info.
 URL is the url to request."
   (let (result)
-    (setq url (format "http://localhost:%s/%s"
-                      netease-cloud-music-api-port url))
-    (request (format "http://localhost:%s/login/cellphone?phone=%s&md5_password=%s&countrycode=%s"
+    (setq url (format "%s:%s/%s"
+		      netease-cloud-music-api-address
+                      netease-cloud-music-api-port
+		      url))
+    (request (format "%s:%s/login/cellphone?phone=%s&md5_password=%s&countrycode=%s"
+		     netease-cloud-music-api-address
                      netease-cloud-music-api-port
                      (cdr netease-cloud-music-phone)
                      netease-cloud-music-user-password
