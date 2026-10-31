@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  emacs:
+    uses: cat-emacs/.github/.github/workflows/emacs-package.yml@v1
+    with:
+      install-command: >-
+        emacs -Q --batch
+        --eval '(setq package-user-dir (expand-file-name ".ci-deps"))'
+        --eval '(require (quote package))'
+        --eval '(add-to-list (quote package-archives) (quote ("melpa" . "https://melpa.org/packages/")) t)'
+        --eval '(package-initialize)'
+        --eval '(package-refresh-contents)'
+        --eval '(mapc (lambda (pkg) (unless (package-installed-p pkg) (package-install pkg))) (quote (request async)))'
+      check-command: |
+        emacs -Q --batch \
+        --eval '(setq package-user-dir (expand-file-name ".ci-deps"))' \
+        --eval '(require (quote package))' \
+        --eval '(package-initialize)' -L . -f batch-byte-compile netease-cloud-music*.el
+        emacs -Q --batch \
+        --eval '(setq package-user-dir (expand-file-name ".ci-deps"))' \
+        --eval '(require (quote package))' \
+        --eval '(package-initialize)' -L . --eval '(require (quote netease-cloud-music-ui))'
